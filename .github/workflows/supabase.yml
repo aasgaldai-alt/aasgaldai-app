@@ -35,8 +35,10 @@ jobs:
         run: supabase functions deploy api --project-ref "$REF" --no-verify-jwt --use-api
       - name: Шалгах
         run: |
-          sleep 5
-          for a in __ping __selftest __selftest; do
-            r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d "{\"action\":\"$a\"}" -w " http=%{http_code} t=%{time_total}")
-            echo "$r"; echo "::notice title=$a::$r"
+          reg=$(curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$REF" | python3 -c "import sys,json; print(json.load(sys.stdin).get('region',''))")
+          echo "::notice title=region::$reg"
+          sleep 3
+          for q in "" "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg"; do
+            r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api$q" -H "Content-Type: text/plain" -d '{"action":"__selftest"}' -w " http=%{http_code} t=%{time_total}")
+            echo "$r"; echo "::notice title=selftest $q::$r"
           done
