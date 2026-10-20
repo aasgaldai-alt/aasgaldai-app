@@ -1823,7 +1823,8 @@ setInterval(()=>{ if(!document.hidden&&S.user) load(true); },60000);
 function pushState(){
   if(MODE!=="http") return "off";
   const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), standalone=navigator.standalone||matchMedia("(display-mode: standalone)").matches;
-  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return ios&&!standalone?"ios":"no";
+  if(ios&&!standalone) return "ios";
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return "no";
   return Notification.permission;
 }
 function pushCard(){
@@ -1831,7 +1832,7 @@ function pushCard(){
   if(s==="off") return "";
   if(s==="granted") return `<div class="card urow"><div class="nm"><b>🔔 Мэдэгдэл асаалттай</b><span class="small muted">Шинэ хүсэлт, хариу, даалгавар ирэхэд энэ төхөөрөмжид мэдэгдэнэ.</span></div><button data-pushtest>Турших</button></div>`;
   if(s==="denied") return `<div class="card"><b>🔕 Мэдэгдэл хаалттай байна</b><div class="small muted">Утасны Settings → Notifications → Аасгалдай (эсвэл хөтчийн тохиргоо) хэсгээс зөвшөөрнө үү.</div></div>`;
-  if(s==="ios") return `<div class="card"><b>🔔 Утсанд мэдэгдэл авах бол</b><div class="small muted">Safari-ийн доод талын Share (⬆︎) → «Add to Home Screen» дарж апп-ыг суулгаад, нүүр дэлгэц дээрх Аасгалдай дүрснээс нээнэ үү. Тэгэхэд энд «Мэдэгдэл асаах» товч гарна.</div></div>`;
+  if(s==="ios") return `<div class="card"><b>🔔 Утсанд мэдэгдэл авах бол</b><div class="small muted">iPhone дээр мэдэгдэл зөвхөн апп болгож суулгасан үед ажилладаг. Safari-ийн Share (⬆︎) → «Add to Home Screen» → <b>«Open as Web App»</b>-ийг асаагаад Add дарна. Дараа нь нүүр дэлгэцийн Аасгалдай дүрснээс нээхэд (дээр нь хаягийн мөр харагдахгүй) энд «Мэдэгдэл асаах» товч гарна.</div></div>`;
   if(s==="no") return `<div class="card small muted">Энэ хөтөч утасны мэдэгдэл дэмжихгүй байна.</div>`;
   return `<button class="primary big" data-push>🔔 Мэдэгдэл асаах</button>`;
 }
