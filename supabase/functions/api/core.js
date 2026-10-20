@@ -39,6 +39,16 @@ export function encRows(rows) {
   return out;
 }
 export function decRows(rows) { return (rows || []).map((r) => (r || []).map(decCell)); }
+// Apps Script-ийн Utilities.computeDigest(alg, string) нь латин бус үсгийг ямар кодлолоор хувиргадгийг шилжүүлэх үед тодорхойлно
+export const ENCODERS = {
+  utf8: (s) => Buffer.from(s, "utf8"),
+  latin1q: (s) => Buffer.from(Array.from(s, (ch) => { const c = ch.charCodeAt(0); return c > 255 ? 63 : c; })),
+  low8: (s) => Buffer.from(s, "latin1"),
+  utf16le: (s) => Buffer.from(s, "utf16le"),
+  utf16be: (s) => { const b = Buffer.from(s, "utf16le"); for (let i = 0; i + 1 < b.length; i += 2) { const t = b[i]; b[i] = b[i + 1]; b[i + 1] = t; } return b; },
+  utf16bom: (s) => Buffer.concat([Buffer.from([0xfe, 0xff]), ENCODERS.utf16be(s)]),
+};
+export function digestBytes(alg, s, enc) { return Array.from(createHash(alg).update((ENCODERS[enc] || ENCODERS.utf8)(String(s))).digest()).map((b) => (b > 127 ? b - 256 : b)); }
 export function sha256hex(s) { return createHash("sha256").update(String(s), "utf8").digest("hex"); }
 
 // Google Sheets утгыг хадгалахдаа хийдэг хувиргалт: '-ээр эхэлсэн бол текст, цэвэр тоо бол тоо
@@ -202,7 +212,7 @@ function makeCtx(snap) {
   ctx.LockService = { getScriptLock: () => ({ waitLock() {}, tryLock() { return true; }, releaseLock() {}, hasLock() { return true; } }) };
   ctx.Utilities = {
     DigestAlgorithm: { SHA_256: "sha256", SHA_1: "sha1", MD5: "md5" },
-    computeDigest(alg, s) { return Array.from(createHash(alg).update(String(s), "utf8").digest()).map((b) => (b > 127 ? b - 256 : b)); },
+    computeDigest(alg, s) { return digestBytes(alg, s, props.getProperty("__DIGEST_ENC") || "utf8"); },
     formatDate,
     getUuid: () => randomUUID(),
     base64Encode: (b) => Buffer.from(typeof b === "string" ? Buffer.from(b, "utf8") : Uint8Array.from(b, (x) => x & 255)).toString("base64"),
@@ -1326,14 +1336,16 @@ async function admin_(b, store) {
   switch (b.action) {
     case "__import": {
       // Apps Script-ийн SHA-256 нь энд тооцсонтой яг ижил эсэхийг шалгана (PIN-үүд хэвээр ажиллах баталгаа)
-      if (!b.digest || hexOf_(makeCtx({}).Utilities.computeDigest("sha256", b.digest.input)) !== b.digest.hex) return { error: "digest", message: "SHA-256 зөрж байна" };
+      if (!b.digest) return { error: "digest", message: "digest байхгүй" };
+      const enc = Object.keys(ENCODERS).find((e) => hexOf_(digestBytes("sha256", b.digest.input, e)) === b.digest.hex);
+      if (!enc) return { error: "digest", message: "SHA-256 кодлол тодорхойгүй: " + b.digest.hex + " " + JSON.stringify(b.digest.input) };
       const sheets = {};
       for (const n in b.sheets || {}) sheets[n] = decRows(b.sheets[n]);
-      sheets.__props = Object.keys(b.props || {}).map((k) => [k, String(b.props[k])]);
+      sheets.__props = Object.keys(b.props || {}).map((k) => [k, String(b.props[k])]).concat([["__DIGEST_ENC", enc]]);
       await store.replaceAll(sheets);
       const counts = {};
       for (const n in sheets) counts[n] = sheets[n].length;
-      return { ok: true, counts };
+      return { ok: true, counts, enc };
     }
     case "__fileList": return { ids: await store.listFiles() };
     case "__file": await store.upload(b.id, b.mime || "image/jpeg", b.b64); return { ok: true };
