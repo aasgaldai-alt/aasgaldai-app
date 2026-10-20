@@ -8,6 +8,7 @@ export const KEY_HASH = "f5e809095950b7176a2a97a76a6dcb3130c015274c6a1e585d736e8
 const TZ = "Asia/Ulaanbaatar";
 const APP_URL = "https://app.aasgaldai.mn/";
 const FILE_MARK = "\u0001FILE:";
+const WORKER = Math.random().toString(36).slice(2, 7);
 
 /* ---------- огноо, кодлол ---------- */
 const fmts = {};
@@ -1314,9 +1315,10 @@ async function admin_(b, store) {
   if (b.action === "__ping") return { ok: true, t: Date.now() };
   if (b.action === "__selftest") {
     const t0 = Date.now(), snap = await store.snapshot(), t1 = Date.now();
+    await store.snapshot(); const t2 = Date.now();
     await store.upload("selftest.txt", "text/plain", Buffer.from("ok " + t0).toString("base64"));
-    const f = await store.download("selftest.txt");
-    return { ok: !!f && Buffer.from(f.bytes).toString() === "ok " + t0, sheets: Object.keys(snap).length, dbMs: t1 - t0, storageMs: Date.now() - t1 };
+    const f = await store.download("selftest.txt"); const t3 = Date.now();
+    return { ok: !!f && Buffer.from(f.bytes).toString() === "ok " + t0, sheets: Object.keys(snap).length, dbMs: t1 - t0, db2Ms: t2 - t1, worker: WORKER, storageMs: t3 - t2 };
   }
   if (!b.key || sha256hex(b.key) !== KEY_HASH) return { error: "auth", message: "key" };
   switch (b.action) {
