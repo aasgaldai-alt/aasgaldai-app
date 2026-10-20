@@ -13,6 +13,7 @@ function serviceKey() {
 const SKEY = serviceKey();
 const authH = () => (SKEY.startsWith("eyJ") ? { apikey: SKEY, Authorization: "Bearer " + SKEY } : { apikey: SKEY, Authorization: "Bearer " + SKEY });
 
+const LEGACY_URL = "https://script.google.com/macros/s/AKfycbxEbho1pB6UOulQAeMfHWw0AzPe8M6qC3YsiiwglUrc8hzZuwPBBF0SsUtVQs0v8b4omQ/exec";
 class Conflict extends Error {}
 const cache = new Map(); // name -> {rows, ver}  (instance дотор хадгалагдах кэш)
 
@@ -76,6 +77,11 @@ const store = {
     const r = await fetch(`${SB_URL}/storage/v1/object/files/${encodeURIComponent(id)}`, { headers: authH() });
     if (!r.ok) { await r.body?.cancel(); return null; }
     return { mime: r.headers.get("content-type") || "image/jpeg", bytes: new Uint8Array(await r.arrayBuffer()) };
+  },
+  async legacy(body) {
+    const r = await fetch(LEGACY_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body), redirect: "follow" });
+    const t = await r.text();
+    try { return JSON.parse(t); } catch (_) { return { error: "server", message: "Хуучин сервер: " + r.status }; }
   },
   async listFiles() {
     const out = [];

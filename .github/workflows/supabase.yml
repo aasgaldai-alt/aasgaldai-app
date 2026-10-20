@@ -38,7 +38,9 @@ jobs:
           reg=$(curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$REF" | python3 -c "import sys,json; print(json.load(sys.stdin).get('region',''))")
           echo "::notice title=region::$reg"
           sleep 3
-          for q in "" "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg"; do
+          r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api?forceFunctionRegion=$reg" -H "Content-Type: text/plain" -d '{"action":"login","login":"deploycheck","pin":"0"}' -w " http=%{http_code} t=%{time_total}")
+          echo "::notice title=login-check::$r"
+          for q in "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg"; do
             r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api$q" -H "Content-Type: text/plain" -d '{"action":"__selftest"}' -w " http=%{http_code} t=%{time_total}")
             echo "$r"; echo "::notice title=selftest $q::$r"
           done

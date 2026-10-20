@@ -1294,6 +1294,8 @@ export async function runRequest(body, store) {
   if (typeof body.action === "string" && body.action.indexOf("__") === 0) return admin_(body, store);
   for (let attempt = 0; attempt < 6; attempt++) {
     const snap = await store.snapshot();
+    // Өгөгдөл шилжээгүй байхад хуучин Google Apps Script сервер рүү дамжуулна
+    if (!snap["Хэрэглэгч"] && store.legacy) return await store.legacy(body);
     const ctx = makeCtx(snap);
     const out = buildApp(ctx).handle_(body);
     if (ctx.book.dirty.size) {
