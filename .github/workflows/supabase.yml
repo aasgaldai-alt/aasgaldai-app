@@ -25,15 +25,18 @@ jobs:
               data=json.dumps({"query": sql}).encode(),
               headers={"Authorization": "Bearer " + os.environ["SUPABASE_ACCESS_TOKEN"], "Content-Type": "application/json", "User-Agent": "aasgaldai-deploy"})
           try:
-              print(urllib.request.urlopen(req).read().decode()[:3000])
+              out = urllib.request.urlopen(req).read().decode()[:3000]
+              print(out); print("::notice title=sql::" + out.replace("\n", " ")[:900])
           except urllib.error.HTTPError as e:
-              print("HTTP", e.code, e.read().decode()[:3000]); raise
+              out = e.read().decode()[:3000]
+              print("HTTP", e.code, out); print("::error title=sql::HTTP %d %s" % (e.code, out.replace("\n", " ")[:900])); raise
           PY
       - name: API функц суулгах
         run: supabase functions deploy api --project-ref "$REF" --no-verify-jwt --use-api
       - name: Шалгах
         run: |
           sleep 5
-          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__ping"}'; echo
-          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__selftest"}'; echo
-          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__selftest"}'; echo
+          for a in __ping __selftest __selftest; do
+            r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d "{\"action\":\"$a\"}" -w " http=%{http_code} t=%{time_total}")
+            echo "$r"; echo "::notice title=$a::$r"
+          done
