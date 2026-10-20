@@ -701,7 +701,7 @@ function renderIncEdit(m){
 
 function renderSettings(m){
   if(!S.users){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; api("userList").then(r=>{S.users=r.users; render();}).catch(e=>toast(e.message)); return; }
-  let h=`<div class="card urow"><div class="nm"><b>${esc(S.user.name)}</b><span class="small muted">${esc(S.user.role)}</span></div><button data-mypin>Миний PIN солих</button></div>
+  let h=`<div class="card urow"><div class="nm"><b>${esc(S.user.name)}</b><span class="small muted">${esc(S.user.role)}</span></div><button data-mypin>Миний PIN солих</button></div>${pushCard()}
    <h3 class="sec">Хэрэглэгчид · ${S.users.length}</h3><div class="small muted" style="margin:0 2px">Энд байгаа хүмүүс л апп-д нэвтэрч хүсэлт илгээнэ. Ажилчин зөвхөн өөрийн хүсэлтийг харна.</div>
    <button class="primary big" data-newuser>＋ Хэрэглэгч нэмэх</button>`;
   h+=S.users.map(u=>{ const locked=u.role==="Захирал"&&!isDir(); const me=u.name===S.user.name;
@@ -754,7 +754,7 @@ function renderPinChange(m,forced){
 }
 function renderMe(m){
   m.innerHTML=`<div class="card"><div style="font-weight:600;font-size:17px">${esc(S.user.name)}</div><div class="small muted">${esc(S.user.role)}</div></div>
-   <button class="big" data-mypin>PIN солих</button>
+   ${pushCard()}<button class="big" data-mypin>PIN солих</button>
    <div class="small muted" style="margin:0 2px">PIN-ээ мартсан бол нягтланд хандаж түр PIN авна. 5 удаа буруу оруулбал 15 минут түгжигдэнэ.</div>`;
 }
 
@@ -1521,7 +1521,7 @@ function renderMy(m){
   h+=`<h3 class="sec">📝 Чөлөө хүсэх</h3><form class="card form" id="lvForm" novalidate><div class="row2"><label class="f">Эхлэх<input id="lv_from" type="date" value="${esc(lv.from)}"></label><label class="f">Дуусах<input id="lv_to" type="date" value="${esc(lv.to)}"></label></div>
     <label class="f">Шалтгаан<textarea id="lv_reason" placeholder="Жишээ: эмнэлэгт үзүүлэх">${esc(lv.reason)}</textarea></label><div id="lvErr" class="banner" hidden></div><button class="primary" type="submit" id="lvSend">Чөлөөний хүсэлт илгээх</button></form>`;
   h+=Y.leaves.map(l=>`<div class="card urow"><div class="nm"><b>${esc(l.from)}${l.to!==l.from?" — "+esc(l.to):""}</b><span class="small muted">${esc(l.reason)}${l.decider?` · ${esc(l.decider)}${l.note?": "+esc(l.note):""}`:""}</span></div><span class="st ${l.status==="Зөвшөөрсөн"?"st-paid":l.status==="Татгалзсан"?"st-no":"st-wait"}">${esc(l.status)}</span></div>`).join("");
-  h+=`<button class="big" data-mypin>PIN солих</button><div class="small muted" style="margin:0 2px">PIN-ээ мартсан бол нягтлан эсвэл хүний нөөцөд хандана уу.</div>`;
+  h+=`${pushCard()}<button class="big" data-mypin>PIN солих</button><div class="small muted" style="margin:0 2px">PIN-ээ мартсан бол нягтлан эсвэл хүний нөөцөд хандана уу.</div>`;
   m.innerHTML=h;
 }
 async function exportPayXlsx(){
@@ -1818,6 +1818,45 @@ document.addEventListener("submit",async e=>{
 });
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user) load(true); });
 setInterval(()=>{ if(!document.hidden&&S.user) load(true); },60000);
+
+/* ---------- утасны мэдэгдэл ---------- */
+function pushState(){
+  if(MODE!=="http") return "off";
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), standalone=navigator.standalone||matchMedia("(display-mode: standalone)").matches;
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return ios&&!standalone?"ios":"no";
+  return Notification.permission;
+}
+function pushCard(){
+  const s=pushState();
+  if(s==="off") return "";
+  if(s==="granted") return `<div class="card urow"><div class="nm"><b>🔔 Мэдэгдэл асаалттай</b><span class="small muted">Шинэ хүсэлт, хариу, даалгавар ирэхэд энэ төхөөрөмжид мэдэгдэнэ.</span></div><button data-pushtest>Турших</button></div>`;
+  if(s==="denied") return `<div class="card"><b>🔕 Мэдэгдэл хаалттай байна</b><div class="small muted">Утасны Settings → Notifications → Аасгалдай (эсвэл хөтчийн тохиргоо) хэсгээс зөвшөөрнө үү.</div></div>`;
+  if(s==="ios") return `<div class="card"><b>🔔 Утсанд мэдэгдэл авах бол</b><div class="small muted">Safari-ийн доод талын Share (⬆︎) → «Add to Home Screen» дарж апп-ыг суулгаад, нүүр дэлгэц дээрх Аасгалдай дүрснээс нээнэ үү. Тэгэхэд энд «Мэдэгдэл асаах» товч гарна.</div></div>`;
+  if(s==="no") return `<div class="card small muted">Энэ хөтөч утасны мэдэгдэл дэмжихгүй байна.</div>`;
+  return `<button class="primary big" data-push>🔔 Мэдэгдэл асаах</button>`;
+}
+function b64uBytes(s){ const p="=".repeat((4-s.length%4)%4), b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(b,c=>c.charCodeAt(0)); }
+async function pushEnable(ask){
+  const perm=ask?await Notification.requestPermission():Notification.permission;
+  if(perm!=="granted") throw new Error("Мэдэгдлийг зөвшөөрөөгүй байна");
+  const reg=await navigator.serviceWorker.ready;
+  const {key}=await api("pushKey");
+  let sub=await reg.pushManager.getSubscription();
+  if(sub&&store.get("aas_pushkey")!==key){ await sub.unsubscribe().catch(()=>{}); sub=null; }
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)});
+  store.set("aas_pushkey",key);
+  const j=sub.toJSON(); await api("pushSub",{sub:{endpoint:j.endpoint,keys:j.keys}});
+}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-push],[data-pushtest]"); if(!b) return;
+  b.disabled=true;
+  try{
+    if(b.hasAttribute("data-push")){ await pushEnable(true); toast("🔔 Мэдэгдэл асаалаа"); }
+    else { await pushEnable(false); const r=await api("pushTest"); toast(r.sent?"Туршилтын мэдэгдэл илгээлээ":"Энэ төхөөрөмж бүртгэгдээгүй байна"); }
+  }catch(err){ toast(err.message||String(err)); }
+  b.disabled=false; render();
+});
+if(S.user&&!S.user.mustChange&&pushState()==="granted") setTimeout(()=>pushEnable(false).catch(()=>{}),4000);
 
 if(MODE==="http"&&"serviceWorker" in navigator){
   const l=document.createElement("link"); l.rel="manifest"; l.href="manifest.webmanifest"; document.head.appendChild(l);

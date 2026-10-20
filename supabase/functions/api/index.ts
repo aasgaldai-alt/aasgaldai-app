@@ -18,6 +18,7 @@ class Conflict extends Error {}
 const cache = new Map(); // name -> {rows, ver}  (instance дотор хадгалагдах кэш)
 
 const store = {
+  defer(p) { try { if (globalThis.EdgeRuntime && EdgeRuntime.waitUntil) return EdgeRuntime.waitUntil(p); } catch (_) {} return p; },
   async snapshot() {
     const vers = await sql`select name, ver from sheets`;
     const live = new Set(), need = [];

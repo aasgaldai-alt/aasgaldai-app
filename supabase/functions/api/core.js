@@ -3,6 +3,7 @@
 // Энэ файлыг build_api.py үүсгэдэг: Code.gs-ийг доорх __CODE__ хэсэгт хуулна. Гараар бүү засаарай.
 import { createHash, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { vapidGenerate, sendPush } from "./webpush.js";
 
 export const KEY_HASH = "f5e809095950b7176a2a97a76a6dcb3130c015274c6a1e585d736e8d3bc2b01d";
 const TZ = "Asia/Ulaanbaatar";
@@ -1295,23 +1296,29 @@ function lastMeal_(me) {
     ctx.uploads.push({ id, mime, b64: dataUrl.split(",")[1] || "" });
     return id;
   }
-  return { handle_ };
+  return { handle_, auth_, users_, isBoss_, isDir_, isPM_, isHab_, isCook_, canProj_, ymd_ };
 }
 
 /* ---------- хүсэлт боловсруулах ---------- */
 export async function runRequest(body, store) {
   if (!body || typeof body !== "object") return { error: "bad", message: "Хүсэлт буруу" };
   if (typeof body.action === "string" && body.action.indexOf("__") === 0) return admin_(body, store);
+  if (PUSH_ACTIONS.indexOf(body.action) >= 0) return pushAction_(body, store);
   for (let attempt = 0; attempt < 6; attempt++) {
     const snap = await store.snapshot();
     // Өгөгдөл шилжээгүй байхад хуучин Google Apps Script сервер рүү дамжуулна
     if (!snap["Хэрэглэгч"] && store.legacy) return await store.legacy(body);
     const ctx = makeCtx(snap);
-    const out = buildApp(ctx).handle_(body);
+    const app = buildApp(ctx);
+    const out = app.handle_(body);
     if (ctx.book.dirty.size) {
       for (const u of ctx.uploads) await store.upload(u.id, u.mime, u.b64);
       const ok = await store.commit([...ctx.book.dirty].map((s) => ({ name: s.name, rows: s.rows, baseVer: s.entry ? s.entry.ver : 0 })));
       if (!ok) continue;
+      try {
+        const plan = notifyPlan_(app, body, out);
+        if (plan.length) { const p = deliver_(ctx, plan, store).catch((e) => console.error("push", e)); if (store.defer) store.defer(p); else await p; }
+      } catch (e) { console.error("notify", e); }
     }
     if (out && typeof out.data === "string" && out.data.indexOf(FILE_MARK) === 0) {
       const f = await store.download(out.data.slice(FILE_MARK.length));
@@ -1374,3 +1381,103 @@ async function admin_(b, store) {
   return { error: "bad", message: "Unknown admin action" };
 }
 function hexOf_(bytes) { return bytes.map((x) => ("0" + (x & 255).toString(16)).slice(-2)).join(""); }
+
+/* ---------- утасны мэдэгдэл (Web Push) ---------- */
+const PUSH_ACTIONS = ["pushKey", "pushSub", "pushUnsub", "pushTest"];
+const PUSH_SUBJECT = "https://app.aasgaldai.mn";
+async function pushAction_(b, store) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const snap = await store.snapshot(), ctx = makeCtx(snap), app = buildApp(ctx);
+    const me = app.auth_(b);
+    if (!me) return { error: "auth", message: "Дахин нэвтэрнэ үү" };
+    const props = ctx.PropertiesService.getScriptProperties();
+    let out;
+    if (b.action === "pushKey") {
+      let v = props.getProperty("__VAPID");
+      if (!v) { v = JSON.stringify(await vapidGenerate()); props.setProperty("__VAPID", v); }
+      out = { key: JSON.parse(v).pub };
+    } else if (b.action === "pushSub" || b.action === "pushUnsub") {
+      const sub = b.sub || {}, ep = String(sub.endpoint || "");
+      if (!/^https:\/\//.test(ep)) return { error: "bad", message: "Буруу захиалга" };
+      const sh = ctx.book.sys("__push"); sh._w();
+      sh.rows = sh.rows.filter((r) => r && r[1] !== ep);
+      if (b.action === "pushSub") {
+        const k = sub.keys || {};
+        if (!k.p256dh || !k.auth) return { error: "bad", message: "Түлхүүр дутуу" };
+        sh.rows.push([me.name, ep, String(k.p256dh), String(k.auth), Date.now()]);
+      }
+      out = { ok: true };
+    } else if (b.action === "pushTest") {
+      const n = await deliver_(ctx, [{ to: [me.name], title: "🔔 Аасгалдай", body: "Мэдэгдэл ажиллаж байна. Сайн байна уу, " + me.name + "!", tag: "test" }], store);
+      return { sent: n };
+    }
+    if (ctx.book.dirty.size && !(await store.commit([...ctx.book.dirty].map((s) => ({ name: s.name, rows: s.rows, baseVer: s.entry ? s.entry.ver : 0 }))))) continue;
+    return out;
+  }
+  return { error: "server", message: "Дахин оролдоно уу" };
+}
+function notifyPlan_(app, b, out) {
+  if (!out || out.error) return [];
+  const me = app.auth_(b);
+  if (!me) return [];
+  const U = app.users_();
+  const names = (f) => U.filter((u) => u.name !== me.name && f(u)).map((u) => u.name);
+  const money = (n) => Math.round(Number(n) || 0).toLocaleString("en-US") + "₮";
+  const cut = (t, n) => { t = String(t || "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+  switch (b.action) {
+    case "create": {
+      const r = out.req; if (!r) return [];
+      return [{ to: names((u) => app.isBoss_(u) && app.canProj_(u, r.proj)), title: "💰 Шинэ хүсэлт · " + r.proj, body: me.name + ": " + cut(r.what, 60) + " — " + money(r.amount), tag: "req-" + r.id }];
+    }
+    case "status": {
+      const r = out.req; if (!r || r.by === me.name) return [];
+      const em = { "Зөвшөөрсөн": "✅", "Төлсөн": "💸", "Буцаасан": "↩️" }[b.status] || "";
+      return [{ to: [r.by], title: em + " Хүсэлт: " + b.status, body: cut(r.what, 60) + " — " + money(r.amount) + (b.note ? " · " + cut(b.note, 80) : ""), tag: "req-" + r.id }];
+    }
+    case "taskSend":
+      return [{ to: ((b.t && b.t.to) || []).filter((n) => n !== me.name), title: "📋 Шинэ даалгавар", body: me.name + ": " + cut(b.t.text, 100) + " · хугацаа " + b.t.due, tag: "task" }];
+    case "leaveReq":
+      return [{ to: names((u) => app.isPM_(u) || u.role === "Нягтлан" || app.isDir_(u)), title: "🗓 Чөлөөний хүсэлт", body: me.name + ": " + b.lv.from + " — " + b.lv.to + " · " + cut(b.lv.reason, 60), tag: "leave" }];
+    case "leaveDecide": {
+      const l = (out.leaves || []).filter((x) => x.id === b.id)[0]; if (!l || l.by === me.name) return [];
+      return [{ to: [l.by], title: b.ok ? "✅ Чөлөө зөвшөөрөгдлөө" : "❌ Чөлөөний хүсэлт татгалзлаа", body: l.from + (l.to !== l.from ? " — " + l.to : "") + (b.note ? " · " + cut(b.note, 80) : ""), tag: "leave" }];
+    }
+    case "habReport":
+      return [{ to: names((u) => app.isHab_(u) || app.isDir_(u)), title: "⚠️ ХАБЭА: " + b.rep.type, body: me.name + ": " + cut(b.rep.desc, 100), tag: "hab" }];
+    case "habSave": {
+      const n = b.note || {};
+      if (n.id || String(n.date) !== app.ymd_(new Date())) return [];
+      return [{ to: names((u) => !app.isHab_(u) && (!n.proj || app.canProj_(u, n.proj))), title: "🦺 Өнөөдрийн ХАБ заавар", body: cut(n.title || n.text, 100), tag: "habnote" }];
+    }
+    case "mealAdd": {
+      const m = b.meal || {};
+      return [{ to: names((u) => !m.proj || app.canProj_(u, m.proj)), title: "🍲 " + m.type + " бэлэн боллоо!", body: cut(m.menu, 90) + " · тогооч " + me.name, tag: "meal" }];
+    }
+  }
+  return [];
+}
+// Төлөвлөгөөг холбогдох хүмүүсийн бүх төхөөрөмж рүү илгээнэ. Буцаах: амжилттай илгээсэн тоо
+async function deliver_(ctx, plan, store) {
+  const v = ctx.PropertiesService.getScriptProperties().getProperty("__VAPID");
+  const sh = ctx.book.getSheetByName("__push");
+  if (!v || !sh) return 0;
+  const vapid = JSON.parse(v), jobs = [], dead = [];
+  for (const p of plan) {
+    const to = {};
+    p.to.forEach((n) => (to[n] = 1));
+    sh.rows.forEach((r) => {
+      if (!r || !to[r[0]]) return;
+      jobs.push(sendPush({ endpoint: r[1], p256dh: r[2], auth: r[3] }, vapid, { title: p.title, body: p.body, tag: p.tag || "", url: "./" }, PUSH_SUBJECT)
+        .then((st) => { if (st === 404 || st === 410) dead.push(r[1]); return st >= 200 && st < 300 ? 1 : 0; })
+        .catch(() => 0));
+    });
+  }
+  const sent = (await Promise.all(jobs)).reduce((a, x) => a + x, 0);
+  if (dead.length) {
+    try {
+      const snap = await store.snapshot(), e = snap.__push;
+      if (e) await store.commit([{ name: "__push", rows: e.rows.filter((r) => dead.indexOf(r[1]) < 0), baseVer: e.ver }]);
+    } catch (_) {}
+  }
+  return sent;
+}
