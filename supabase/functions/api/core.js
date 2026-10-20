@@ -1409,7 +1409,8 @@ async function pushAction_(b, store) {
       out = { ok: true };
     } else if (b.action === "pushTest") {
       const n = await deliver_(ctx, [{ to: [me.name], title: "🔔 Аасгалдай", body: "Мэдэгдэл ажиллаж байна. Сайн байна уу, " + me.name + "!", tag: "test" }], store);
-      return { sent: n };
+      const subs = (ctx.book.getSheetByName("__push") || { rows: [] }).rows.filter((r) => r && r[0] === me.name).length;
+      return { sent: n, devices: subs, results: (deliver_.last || []).map((x) => x[1] + " " + x[2] + (x[3] ? " " + x[3] : "")) };
     }
     if (ctx.book.dirty.size && !(await store.commit([...ctx.book.dirty].map((s) => ({ name: s.name, rows: s.rows, baseVer: s.entry ? s.entry.ver : 0 }))))) continue;
     return out;
@@ -1461,23 +1462,25 @@ async function deliver_(ctx, plan, store) {
   const v = ctx.PropertiesService.getScriptProperties().getProperty("__VAPID");
   const sh = ctx.book.getSheetByName("__push");
   if (!v || !sh) return 0;
-  const vapid = JSON.parse(v), jobs = [], dead = [];
+  const vapid = JSON.parse(v), jobs = [], dead = [], log = [];
   for (const p of plan) {
     const to = {};
     p.to.forEach((n) => (to[n] = 1));
     sh.rows.forEach((r) => {
       if (!r || !to[r[0]]) return;
+      const host = (() => { try { return new URL(r[1]).host; } catch (_) { return "?"; } })();
       jobs.push(sendPush({ endpoint: r[1], p256dh: r[2], auth: r[3] }, vapid, { title: p.title, body: p.body, tag: p.tag || "", url: "./" }, PUSH_SUBJECT)
-        .then((st) => { if (st === 404 || st === 410) dead.push(r[1]); return st >= 200 && st < 300 ? 1 : 0; })
-        .catch(() => 0));
+        .then((res) => { if (res.status === 404 || res.status === 410) dead.push(r[1]); log.push([r[0], host, res.status, res.text, Date.now()]); return res.status >= 200 && res.status < 300 ? 1 : 0; })
+        .catch((e) => { log.push([r[0], host, 0, String(e && e.message || e).slice(0, 200), Date.now()]); return 0; }));
     });
   }
   const sent = (await Promise.all(jobs)).reduce((a, x) => a + x, 0);
-  if (dead.length) {
-    try {
-      const snap = await store.snapshot(), e = snap.__push;
-      if (e) await store.commit([{ name: "__push", rows: e.rows.filter((r) => dead.indexOf(r[1]) < 0), baseVer: e.ver }]);
-    } catch (_) {}
-  }
+  try {
+    const snap = await store.snapshot(), e = snap.__push, lg = snap.__pushlog, list = [];
+    if (dead.length && e) list.push({ name: "__push", rows: e.rows.filter((r) => dead.indexOf(r[1]) < 0), baseVer: e.ver });
+    if (log.length) list.push({ name: "__pushlog", rows: (lg ? lg.rows : []).concat(log).slice(-40), baseVer: lg ? lg.ver : 0 });
+    if (list.length) await store.commit(list);
+  } catch (_) {}
+  deliver_.last = log;
   return sent;
 }

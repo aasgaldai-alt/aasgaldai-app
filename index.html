@@ -1852,7 +1852,7 @@ document.addEventListener("click",async e=>{
   b.disabled=true;
   try{
     if(b.hasAttribute("data-push")){ await pushEnable(true); toast("🔔 Мэдэгдэл асаалаа"); }
-    else { await pushEnable(false); const r=await api("pushTest"); toast(r.sent?"Туршилтын мэдэгдэл илгээлээ":"Энэ төхөөрөмж бүртгэгдээгүй байна"); }
+    else { await pushEnable(false); const r=await api("pushTest"); toast(r.sent?"Туршилтын мэдэгдэл илгээлээ ("+r.sent+" төхөөрөмж)":"Илгээж чадсангүй: "+((r.results||[]).join("; ")||"төхөөрөмж бүртгэгдээгүй")); }
   }catch(err){ toast(err.message||String(err)); }
   b.disabled=false; render();
 });
