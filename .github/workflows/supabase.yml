@@ -40,6 +40,8 @@ jobs:
           sleep 3
           r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api?forceFunctionRegion=$reg" -H "Content-Type: text/plain" -d '{"action":"login","login":"deploycheck","pin":"0"}' -w " http=%{http_code} t=%{time_total}")
           echo "::notice title=login-check::$r"
+          h=$(curl -sS -D - -o /dev/null -X POST "https://$REF.supabase.co/functions/v1/api?forceFunctionRegion=$reg" -H "Origin: https://app.aasgaldai.mn" -H "Content-Type: text/plain;charset=utf-8" -d '{"action":"__ping"}' | grep -i "access-control-allow-origin" | tr -d '\r')
+          echo "::notice title=cors::$h"
           for q in "?forceFunctionRegion=$reg" "?forceFunctionRegion=$reg"; do
             r=$(curl -sS -X POST "https://$REF.supabase.co/functions/v1/api$q" -H "Content-Type: text/plain" -d '{"action":"__selftest"}' -w " http=%{http_code} t=%{time_total}")
             echo "$r"; echo "::notice title=selftest $q::$r"
