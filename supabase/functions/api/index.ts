@@ -28,7 +28,11 @@ const store = {
     }
     if (need.length) {
       const rows = await sql`select name, ver, data::text as data from sheets where name = any(${need})`;
-      for (const r of rows) cache.set(r.name, { ver: Number(r.ver), rows: decRows(JSON.parse(r.data)) });
+      for (const r of rows) {
+        let d = JSON.parse(r.data);
+        if (typeof d === "string") d = JSON.parse(d); // хуучин давхар кодлогдсон мөр
+        cache.set(r.name, { ver: Number(r.ver), rows: decRows(Array.isArray(d) ? d : []) });
+      }
     }
     for (const k of [...cache.keys()]) if (!live.has(k)) cache.delete(k);
     return Object.fromEntries(cache);
@@ -40,8 +44,8 @@ const store = {
         for (const it of list) {
           const txt = JSON.stringify(encRows(it.rows));
           const r = it.baseVer === 0
-            ? await tx`insert into sheets (name, data, ver) values (${it.name}, ${txt}::jsonb, 1) on conflict (name) do nothing returning ver`
-            : await tx`update sheets set data = ${txt}::jsonb, ver = ver + 1, updated_at = now() where name = ${it.name} and ver = ${it.baseVer} returning ver`;
+            ? await tx`insert into sheets (name, data, ver) values (${it.name}, ${txt}::text::jsonb, 1) on conflict (name) do nothing returning ver`
+            : await tx`update sheets set data = ${txt}::text::jsonb, ver = ver + 1, updated_at = now() where name = ${it.name} and ver = ${it.baseVer} returning ver`;
           if (!r.length) throw new Conflict("conflict");
           res.push(Number(r[0].ver));
         }
@@ -60,7 +64,7 @@ const store = {
       await tx`delete from sheets where not (name = any(${names}))`;
       for (const n of names) {
         const txt = JSON.stringify(encRows(sheets[n]));
-        await tx`insert into sheets (name, data, ver) values (${n}, ${txt}::jsonb, 1)
+        await tx`insert into sheets (name, data, ver) values (${n}, ${txt}::text::jsonb, 1)
                  on conflict (name) do update set data = excluded.data, ver = sheets.ver + 1, updated_at = now()`;
       }
     });
