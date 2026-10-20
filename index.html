@@ -37,7 +37,7 @@
   --warn:#f0b04e; --warn-soft:#3a2b14; --bad:#ff8a6b; --bad-soft:#3d1f17; --info:#6aa5ff; --info-soft:#1a2b4d; color-scheme:dark}
 [hidden]{display:none!important}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{min-height:100%}
+html,body{min-height:100%} body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
 .wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -172,6 +172,27 @@ table.tx tr.tot td{font-weight:600;border-bottom:none;border-top:1px solid var(-
 .cal b{font-size:11px;color:var(--muted);font-weight:500}
 .cal span{padding:6px 0;border-radius:7px;background:var(--bg);font-family:var(--mono)}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+@media (min-width:900px){
+  body{background:var(--soft)}
+  header.bar .wrap{max-width:none;padding-left:24px;padding-right:24px}
+  header.bar h1{font-size:18px}
+  nav.tabs{top:calc(65px + env(safe-area-inset-top,0px));bottom:0;left:0;right:auto;width:236px;border-top:0;border-right:1px solid var(--line);padding:14px 12px;overflow-y:auto;background:var(--panel)}
+  nav.tabs .wrap{flex-direction:column;gap:4px;padding:0;max-width:none}
+  nav.tabs button{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;padding:11px 14px;font-size:14.5px;border-radius:10px;color:var(--ink);text-align:left}
+  nav.tabs button .ic{font-size:18px;width:34px;display:flex;justify-content:center;flex:none}
+  nav.tabs button .ic svg{width:34px;height:19px}
+  nav.tabs button:hover{background:var(--soft)}
+  nav.tabs button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+  nav.tabs.many button{font-size:14.5px;letter-spacing:0}
+  nav.tabs .badge{position:static;margin-left:auto}
+  nav.tabs:not([hidden]) ~ main.wrap,body:has(nav.tabs:not([hidden])) main.wrap{margin-left:max(260px,calc(236px + (100vw - 236px - 920px)/2));margin-right:auto}
+  main.wrap{max-width:920px;padding-block:24px 48px;padding-left:24px;padding-right:24px;gap:14px}
+  .toast{bottom:28px}
+  .login{max-width:420px;margin:40px auto 0;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px}
+  .sum{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .dlg{max-width:440px}
+}
+
 </style>
 
 <header class="bar"><div class="wrap">
