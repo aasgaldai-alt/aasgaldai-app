@@ -1,0 +1,39 @@
+name: Supabase сервер суулгах
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: idvxeqblgerfdkdnktab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Өгөгдлийн сангийн бүтэц
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          sql = open("supabase/schema.sql").read()
+          req = urllib.request.Request(
+              "https://api.supabase.com/v1/projects/%s/database/query" % os.environ["REF"],
+              data=json.dumps({"query": sql}).encode(),
+              headers={"Authorization": "Bearer " + os.environ["SUPABASE_ACCESS_TOKEN"], "Content-Type": "application/json", "User-Agent": "aasgaldai-deploy"})
+          try:
+              print(urllib.request.urlopen(req).read().decode()[:3000])
+          except urllib.error.HTTPError as e:
+              print("HTTP", e.code, e.read().decode()[:3000]); raise
+          PY
+      - name: API функц суулгах
+        run: supabase functions deploy api --project-ref "$REF" --no-verify-jwt --use-api
+      - name: Шалгах
+        run: |
+          sleep 5
+          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__ping"}'; echo
+          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__selftest"}'; echo
+          curl -sS -X POST "https://$REF.supabase.co/functions/v1/api" -H "Content-Type: text/plain" -d '{"action":"__selftest"}'; echo
