@@ -248,7 +248,7 @@ function buildApp(ctx) {
  *   Хэрэглэгч — Нэр | Үүрэг (Ажилчин/Нягтлан/Админ/Захирал) | PIN (нууцалсан) | Имэйл | Утас | PIN солих
  */
 var ST = { WAIT: 'Хүлээгдэж буй', OK: 'Зөвшөөрсөн', NO: 'Буцаасан', PAID: 'Төлсөн' };
-var ROLES = ['Ажилчин', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер', 'Тогооч', 'ХАБ инженер', 'Төслийн удирдагч', 'Хүний нөөц', 'Нягтлан', 'Админ', 'Захирал'];
+var ROLES = ['Ажилчин', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер', 'Инженер', 'Тогооч', 'ХАБ инженер', 'Төслийн удирдагч', 'Хүний нөөц', 'Нягтлан', 'Админ', 'Захирал'];
 var PENDING = 'Хүлээгдэж буй';
 var VATS = ['НӨАТ-тай', 'НӨАТ-гүй'];
 function isDir_(u) { return u.role === 'Захирал'; }
@@ -257,6 +257,7 @@ function isMaster_(u) { return u.role === 'Мастер'; }
 function isMech_(u) { return u.role === 'Механик'; }
 function isStore_(u) { return u.role === 'Нярав'; }
 function isOper_(u) { return u.role === 'Оператор'; }
+function isEng_(u) { return u.role === 'Инженер'; }
 function canUsers_(u) { return isBoss_(u) || isHR_(u) || isAdmin_(u); }
 function fuelView_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u) || isPM_(u); }
 function fuelAdd_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u); }
@@ -416,6 +417,10 @@ function handle_(b) {
       case 'deleteUser':
         if (!canUsers_(me)) return deny_();
         deleteUser_(me, b.target); return { users: pubUsers_(boss, true) };
+      case 'sched': return schedData_(me);
+      case 'schedItem': schedItem_(me, b.it); return schedData_(me);
+      case 'schedItemDel': schedItemDel_(me, b.id); return schedData_(me);
+      case 'schedDay': schedDay_(me, b.proj, b.date, b.entries); return schedData_(me);
       case 'setLimit':
         if (!director) return deny_();
         PropertiesService.getScriptProperties().setProperty('APPROVE_LIMIT', String(Math.round(num_(b.limit)) || 10000000));
@@ -486,8 +491,8 @@ function users_() {
   var cache = CacheService.getScriptCache(), hit = cache.get('users');
   if (hit) return JSON.parse(hit);
   var sh = sh_('Хэрэглэгч'); if (sh.getLastRow() < 2) return [];
-  if (sh.getMaxColumns() < 18) sh.insertColumnsAfter(sh.getMaxColumns(), 18 - sh.getMaxColumns());
-  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues();
+  if (sh.getMaxColumns() < 19) sh.insertColumnsAfter(sh.getMaxColumns(), 19 - sh.getMaxColumns());
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 19).getValues();
   var out = [];
   v.forEach(function (r, i) {
     if (!r[0]) return;
@@ -495,7 +500,7 @@ function users_() {
                phone: digits_(r[4]), mustChange: r[5] === true || String(r[5]).toUpperCase() === 'TRUE', projects: projList_(r[6]),
                position: String(r[7] || '').trim(), wageType: String(r[8]) === 'Сар' ? 'Сар' : 'Өдөр', wage: num_(r[9]), wdays: num_(r[10]) || 22,
                surname: String(r[11] || '').trim(), given: String(r[12] || '').trim(), age: num_(r[13]) || '', sex: String(r[14] || ''),
-               canReq: !(r[15] === false || String(r[15]).toUpperCase() === 'FALSE'), status: String(r[16] || '').trim(), regAt: fmtDate_(r[17]) });
+               canReq: !(r[15] === false || String(r[15]).toUpperCase() === 'FALSE'), status: String(r[16] || '').trim(), regAt: fmtDate_(r[17]), sched: r[18] === true || String(r[18]).toUpperCase() === 'TRUE' });
   });
   cache.put('users', JSON.stringify(out), 300);
   return out;
@@ -503,13 +508,13 @@ function users_() {
 function projList_(x) { var p = String(x || '').trim(); if (!p || p === '*') return null; return p.split(/[,\s]+/).filter(function (c) { return c; }); }
 function canProj_(u, code) { return !u.projects || u.projects.indexOf(code) >= 0; }
 function dropUsers_() { CacheService.getScriptCache().remove('users'); }
-function pubUsers_(full, personal) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position, canReq: u.canReq, status: u.status };
+function pubUsers_(full, personal) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position, canReq: u.canReq, status: u.status, sched: u.sched };
   if (personal) { o.surname = u.surname; o.given = u.given; o.age = u.age; o.sex = u.sex; o.regAt = u.regAt; }
   if (full) { o.wageType = u.wageType; o.wage = u.wage; o.wdays = u.wdays; } return o; }); }
 function activeUsers_() { return users_().filter(function (u) { return u.status !== PENDING; }); }
 function contacts_() { return activeUsers_().filter(function (u) { return u.phone; }).map(function (u) { return { name: u.name, role: u.role, position: u.position, phone: u.phone }; }); }
 var UHEAD2 = ['Овог', 'Өөрийн нэр', 'Нас', 'Хүйс', 'Хүсэлтийн эрх', 'Төлөв', 'Бүртгүүлсэн'];
-function userHead_(sh) { if (!String(sh.getRange(1, 12).getValue())) sh.getRange(1, 12, 1, 7).setValues([UHEAD2]); }
+function userHead_(sh) { if (!String(sh.getRange(1, 12).getValue())) sh.getRange(1, 12, 1, 7).setValues([UHEAD2]); if (!String(sh.getRange(1, 19).getValue())) sh.getRange(1, 19).setValue('График хөтлөгч'); }
 function register_(r) {
   r = r || {};
   var sur = String(r.surname || '').trim(), giv = String(r.given || '').trim(), age = Math.round(num_(r.age)), sex = String(r.sex || '').trim(), phone = digits_(r.phone), pin = String(r.pin || '').trim();
@@ -539,7 +544,7 @@ function secret_() {
 }
 function hashPin_(name, pin) { return 'h1:' + hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, secret_() + '|' + name + '|' + pin)); }
 function pinOk_(u, pin) { return u.pin.indexOf('h1:') === 0 ? u.pin === hashPin_(u.name, pin) : (u.pin !== '' && u.pin === pin); }
-function minLen_(role) { return ['Ажилчин', 'Тогооч', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер'].indexOf(role) >= 0 ? 6 : 8; }
+function minLen_(role) { return ['Ажилчин', 'Тогооч', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер', 'Инженер'].indexOf(role) >= 0 ? 6 : 8; }
 function checkPin_(role, pin) {
   var n = minLen_(role);
   if (!new RegExp('^\\d{' + n + ',12}$').test(pin)) throw new Error('PIN ' + n + '-12 оронтой тоо байна');
@@ -612,8 +617,18 @@ function saveUser_(me, u, isNew) {
              String(u.sex != null ? u.sex : (ex ? ex.sex : '')), u.canReq != null ? !!u.canReq : (ex ? ex.canReq : true), '', ex && ex.regAt ? ex.regAt : ''];
   if (!String(sh.getRange(1, 7).getValue())) sh.getRange(1, 7, 1, 5).setValues([['Төслүүд', 'Албан тушаал', 'Цалингийн төрөл', 'Цалин', 'Сарын ажлын өдөр']]);
   userHead_(sh);
-  if (isNew) sh.appendRow(row.concat(['Өдөр', '', ''], ext.slice(0, 6), [new Date()]));
-  else { sh.getRange(ex.row, 1, 1, 8).setValues([row]); sh.getRange(ex.row, 12, 1, 6).setValues([ext.slice(0, 6)]); }
+  var sched = role === 'Инженер' && (u.sched != null ? !!u.sched : !!(ex && ex.sched));
+  if (u.sched && role !== 'Инженер') throw new Error('Ажлын график хөтлөх эрхийг зөвхөн Инженерт олгоно');
+  if (isNew) sh.appendRow(row.concat(['Өдөр', '', ''], ext.slice(0, 6), [new Date(), sched]));
+  else { sh.getRange(ex.row, 1, 1, 8).setValues([row]); sh.getRange(ex.row, 12, 1, 6).setValues([ext.slice(0, 6)]); sh.getRange(ex.row, 19).setValue(sched); }
+  if (sched) { // нэг төсөлд нэг л график хөтлөгч
+    var mine = projList_(pr);
+    all.forEach(function (x) {
+      if (x.name === name || !x.sched) return;
+      var overlap = !mine || !x.projects || x.projects.some(function (c) { return mine.indexOf(c) >= 0; });
+      if (overlap) sh.getRange(x.row, 19).setValue(false);
+    });
+  }
   dropUsers_();
   return pubUsers_();
 }
@@ -1438,6 +1453,97 @@ function letterVoid_(me, no) {
   var sh = letterSheet_(), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(no)) { sh.getRange(i + 1, 15).setValue('Хүчингүй'); return; }
   throw new Error('Олдсонгүй');
+}
+
+
+/* ======================================================================
+ * АЖЛЫН ГРАФИК (календарчилсан төлөвлөгөө, өдөр бүрийн гүйцэтгэл)
+ * Ажлын график: A ID | B Төсөл | C Ажлын нэр | D Нэгж | E Тоо хэмжээ | F Эхлэх | G Дуусах | H Дараалал | I Бүртгэсэн | J Огноо
+ * Гүйцэтгэл:    A ID | B Ажлын ID | C Төсөл | D Огноо | E Тоо хэмжээ | F Тэмдэглэл | G Бүртгэсэн | H Цаг
+ * Харах: бүх нэвтэрсэн хэрэглэгч. Засах: Захирал, эсвэл тухайн төслийн "График хөтлөгч" Инженер.
+ * ====================================================================== */
+function schedSheet_() { return ensureSheet_('Ажлын график', ['ID','Төсөл','Ажлын нэр','Нэгж','Тоо хэмжээ','Эхлэх','Дуусах','Дараалал','Бүртгэсэн','Огноо']); }
+function schedLogSheet_() { return ensureSheet_('Гүйцэтгэл', ['ID','Ажлын ID','Төсөл','Огноо','Тоо хэмжээ','Тэмдэглэл','Бүртгэсэн','Цаг']); }
+function schedItems_() {
+  return rowsOf_(schedSheet_(), 10).map(function (r) {
+    return { id: String(r[0]), proj: String(r[1]), name: String(r[2] || ''), unit: String(r[3] || ''), qty: num_(r[4]), start: ymd_(r[5]), end: ymd_(r[6]), ord: num_(r[7]), by: String(r[8] || '') };
+  });
+}
+function schedLogs_() {
+  return rowsOf_(schedLogSheet_(), 8).map(function (r) {
+    return { id: String(r[0]), item: String(r[1]), proj: String(r[2]), date: ymd_(r[3]), qty: num_(r[4]), note: String(r[5] || ''), by: String(r[6] || '') };
+  });
+}
+function schedCan_(me, proj) { return isDir_(me) || (isEng_(me) && me.sched && canProj_(me, proj)); }
+function schedDate_(x) { x = String(x || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return null; var p = x.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function schedData_(me) {
+  var us = activeUsers_();
+  var projects = meta_().projects.map(function (p) {
+    var ed = us.filter(function (u) { return isEng_(u) && u.sched && canProj_(u, p[0]); })[0];
+    return { code: p[0], name: p[1], editor: ed ? ed.name : '', editorPhone: ed ? ed.phone : '' };
+  });
+  return { today: ymd_(new Date()), projects: projects, items: schedItems_(), logs: schedLogs_(),
+           canEdit: projects.filter(function (p) { return schedCan_(me, p.code); }).map(function (p) { return p.code; }) };
+}
+function schedItem_(me, it) {
+  it = it || {};
+  var proj = String(it.proj || '').trim();
+  if (!schedCan_(me, proj)) throw new Error('Энэ төслийн графикийг засах эрхгүй');
+  var name = String(it.name || '').trim(), unit = String(it.unit || '').trim(), qty = num_(it.qty), st = schedDate_(it.start), en = schedDate_(it.end);
+  if (!name) throw new Error('Ажлын нэрийг бичнэ үү');
+  if (!(qty > 0)) throw new Error('Тоо хэмжээг оруулна уу');
+  if (!st || !en) throw new Error('Эхлэх, дуусах огноог оруулна уу');
+  if (String(it.end) < String(it.start)) throw new Error('Дуусах огноо эхлэхээс өмнө байна');
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = schedSheet_(), v = sh.getDataRange().getValues();
+    if (it.id) {
+      for (var i = 1; i < v.length; i++) if (String(v[i][0]) === String(it.id)) {
+        if (String(v[i][1]) !== proj) throw new Error('Төсөл таарахгүй байна');
+        sh.getRange(i + 1, 3, 1, 5).setValues([[name, unit, qty, st, en]]);
+        if (it.ord != null && it.ord !== '') sh.getRange(i + 1, 8).setValue(num_(it.ord));
+        return;
+      }
+      throw new Error('Ажил олдсонгүй');
+    }
+    var mx = 0; for (var j = 1; j < v.length; j++) if (String(v[j][1]) === proj) mx = Math.max(mx, num_(v[j][7]));
+    sh.appendRow(['G' + new Date().getTime().toString(36) + Math.floor(Math.random() * 1296).toString(36), proj, name, unit, qty, st, en, mx + 1, me.name, new Date()]);
+  } finally { lock.releaseLock(); }
+}
+function schedItemDel_(me, id) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = schedSheet_(), v = sh.getDataRange().getValues(), found = false;
+    for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === String(id)) {
+      if (!schedCan_(me, String(v[i][1]))) throw new Error('Энэ төслийн графикийг засах эрхгүй');
+      sh.deleteRow(i + 1); found = true;
+    }
+    if (!found) return;
+    var lh = schedLogSheet_(), lv = lh.getDataRange().getValues();
+    for (var k = lv.length - 1; k >= 1; k--) if (String(lv[k][1]) === String(id)) lh.deleteRow(k + 1);
+  } finally { lock.releaseLock(); }
+}
+function schedDay_(me, proj, date, entries) {
+  proj = String(proj || '');
+  if (!schedCan_(me, proj)) throw new Error('Энэ төслийн графикийг засах эрхгүй');
+  var d = schedDate_(date); if (!d) throw new Error('Огноо буруу');
+  if (String(date) > ymd_(new Date())) throw new Error('Ирээдүйн өдрийн гүйцэтгэл оруулах боломжгүй');
+  var items = {}; schedItems_().forEach(function (x) { if (x.proj === proj) items[x.id] = x; });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = schedLogSheet_(), v = sh.getDataRange().getValues(), at = {};
+    for (var i = 1; i < v.length; i++) if (v[i][0]) at[String(v[i][1]) + '|' + ymd_(v[i][3])] = i + 1;
+    var del = [];
+    (entries || []).forEach(function (e) {
+      var it = items[String(e.item)]; if (!it) return;
+      var q = e.qty === '' || e.qty == null ? 0 : num_(e.qty), note = String(e.note || '').trim(), row = at[it.id + '|' + date];
+      if (q < 0) throw new Error('Тоо хэмжээ сөрөг байж болохгүй');
+      if (!q && !note) { if (row) del.push(row); return; }
+      if (row) sh.getRange(row, 5, 1, 4).setValues([[q, note, me.name, new Date()]]);
+      else sh.appendRow(['L' + new Date().getTime().toString(36) + Math.floor(Math.random() * 46656).toString(36), it.id, proj, d, q, note, me.name, new Date()]);
+    });
+    del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+  } finally { lock.releaseLock(); }
 }
 
 

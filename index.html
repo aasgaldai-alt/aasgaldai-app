@@ -219,6 +219,27 @@ div.f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 #l_body{tab-size:4;-moz-tab-size:4;font-family:Arial,sans-serif;line-height:1.45;white-space:pre-wrap}
 .stampbox{display:flex;justify-content:center;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)}.stampbox img{max-width:180px}
 .lsug{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-top:4px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.10)}.lsug button{display:block;width:100%;text-align:left;border:0;border-radius:0;background:none;padding:9px 12px;font-size:14.5px;font-weight:600;color:var(--ink);white-space:normal}.lsug button+button{border-top:1px solid var(--line)}.lsug button[aria-selected="true"],.lsug button:hover{background:var(--soft)}.lsug small{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:1px}
+.st-done{background:var(--info-soft);color:var(--info)}.st-idle{background:var(--soft);color:var(--muted)}.st-warn{background:var(--warn-soft);color:var(--warn)}.st-bad{background:var(--bad-soft);color:var(--bad)}
+.g-ok{background:var(--ok)}.g-warn{background:var(--warn)}.g-bad{background:var(--bad)}.g-done{background:var(--info)}.g-idle{background:var(--muted)}
+.t-ok{color:var(--ok)}.t-warn{color:var(--warn)}.t-bad{color:var(--bad)}.t-done{color:var(--info)}.t-idle{color:var(--muted)}
+.gsum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.gsum b{font-size:20px;font-family:var(--mono)}
+.gbar{position:relative;height:10px;border-radius:6px;background:var(--soft);overflow:hidden;margin-top:8px}.gbar .gp{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(45deg,var(--line) 0 4px,transparent 4px 8px)}.gbar .ga{position:absolute;inset:0 auto 0 0;border-radius:6px;opacity:.9}
+.gwrap{--gl:color-mix(in srgb,var(--line) 55%,transparent);overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;-webkit-overflow-scrolling:touch}
+.gr{display:flex;width:max-content;min-width:100%;border-bottom:1px solid var(--line);min-height:46px}.gr:last-child{border-bottom:0}
+.gn{position:sticky;left:0;z-index:2;flex:0 0 128px;width:128px;background:var(--panel);border:0;border-right:1px solid var(--line);border-radius:0;text-align:left;padding:6px 8px;display:flex;flex-direction:column;justify-content:center;gap:1px;font-size:13px;line-height:1.25}
+.gn b{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gl{position:relative;flex:0 0 auto}.gh .gl{border-bottom:0}
+.gm{position:absolute;top:2px;font-size:11px;font-weight:600;white-space:nowrap;padding-left:3px;border-left:1px solid var(--line)}
+.gd{position:absolute;top:18px;font-size:10px;text-align:center;color:var(--muted)}.gd.gt{color:var(--bad);font-weight:700}
+.gb{position:absolute;top:10px;height:20px;border-radius:5px;background:var(--soft);border:1px solid var(--line);overflow:hidden}
+.gb .gp{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--muted) 30%,transparent) 0 3px,transparent 3px 7px)}
+.gb .ga{position:absolute;inset:0 auto 0 0;opacity:.85}
+.gx{position:absolute;left:4px;top:1px;font-size:11px;font-weight:700;color:var(--ink);text-shadow:0 0 3px var(--panel)}
+.gk{position:absolute;bottom:4px;width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.75}
+.gtoday{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--bad);opacity:.7;z-index:1}
+.glg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 2px 0}.glg span{display:inline-flex;align-items:center;gap:5px}.glg i{display:inline-block;width:14px;height:10px;border-radius:3px}
+.glg .gpl{background:repeating-linear-gradient(45deg,var(--muted) 0 2px,transparent 2px 5px);border:1px solid var(--line)}.glg .gk0{width:7px;height:7px;border-radius:50%;background:var(--ink)}.glg .gt0{width:2px;height:12px;background:var(--bad)}
+.gtbl{width:100%;border-collapse:collapse;font-size:14px}.gtbl th,.gtbl td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}.gtbl th:first-child,.gtbl td:first-child{text-align:left}.gtbl tr:last-child td{border-bottom:0}
 </style>
 
 <header class="bar"><div class="wrap">
@@ -239,8 +260,8 @@ const API_URL = "https:"+"/"+"/idvxeqblgerfdkdnktab.supabase.co/functions/v1/api
 const ST={WAIT:"Хүлээгдэж буй",OK:"Зөвшөөрсөн",NO:"Буцаасан",PAID:"Төлсөн"};
 const stCls={[ST.WAIT]:"st-wait",[ST.OK]:"st-ok",[ST.NO]:"st-no",[ST.PAID]:"st-paid"};
 const COSTS=[["c1","Захиалагчийн хяналтын зардал"],["c2","Техник технологийн зардал"],["c3","Зураг төслийн зардал"],["c4","Норм нормативийн зардал"],["c5","Магадлашгүй ажлын зардал"]];
-const ROLES=["Ажилчин","Оператор","Механик","Нярав","Мастер","Чанарын инженер","Тогооч","ХАБ инженер","Төслийн удирдагч","Хүний нөөц","Нягтлан","Админ","Захирал"];
-const FIELD=["Ажилчин","Тогооч","Оператор","Механик","Нярав","Мастер","Чанарын инженер"];
+const ROLES=["Ажилчин","Оператор","Механик","Нярав","Мастер","Чанарын инженер","Инженер","Тогооч","ХАБ инженер","Төслийн удирдагч","Хүний нөөц","Нягтлан","Админ","Захирал"];
+const FIELD=["Ажилчин","Тогооч","Оператор","Механик","Нярав","Мастер","Чанарын инженер","Инженер"];
 const VATS=["НӨАТ-тай","НӨАТ-гүй"];
 const RTL={vat:"НӨАТ-тай",ebo:"НӨАТ-гүй, и-баримттай",none:"Баримтгүй"};
 const rtOf=r=>r.vat==="НӨАТ-тай"?"vat":(r.ebarimt==="Тийм"?"ebo":"none");
@@ -402,7 +423,7 @@ function getLoc(){ return new Promise((res,rej)=>{ if(!navigator.geolocation) re
 const LOC_HELP="Утасны тохиргоо → Байршил (Location) асаана уу. Хөтөч энэ сайтад байршил ашиглахыг «Зөвшөөрөх» (Allow) хэрэгтэй. iPhone: Тохиргоо → Нууцлал → Байршлын үйлчилгээ → Safari → «Ашиглах үед».";
 let toastT; function toast(m){ let t=$(".toast"); if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t);} t.textContent=m; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2600); }
 async function copy(text,label){ try{ await navigator.clipboard.writeText(text); toast(label+" хуулагдлаа"); }catch(e){ const el=document.createElement("textarea"); el.value=text; document.body.appendChild(el); el.select(); let ok=false; try{ok=document.execCommand("copy")}catch(x){} el.remove(); toast(ok?label+" хуулагдлаа":"Хуулж чадсангүй. Текст дээр удаан дараад хуулна уу."); } }
-const role=()=>S.user?.role; const isDir=()=>role()==="Захирал"; const isBoss=()=>role()==="Нягтлан"||isDir(); const isAdmin=()=>role()==="Админ"; const isMaster=()=>role()==="Мастер"; const isMech=()=>role()==="Механик"; const isStore=()=>role()==="Нярав"; const isOper=()=>role()==="Оператор";
+const role=()=>S.user?.role; const isDir=()=>role()==="Захирал"; const isBoss=()=>role()==="Нягтлан"||isDir(); const isAdmin=()=>role()==="Админ"; const isMaster=()=>role()==="Мастер"; const isMech=()=>role()==="Механик"; const isStore=()=>role()==="Нярав"; const isOper=()=>role()==="Оператор"; const isEng=()=>role()==="Инженер";
 const canUsers=()=>isBoss()||role()==="Хүний нөөц"||isAdmin(); const canEquip=()=>isBoss()||isMech(); const fuelAll=()=>isBoss()||isMech()||isStore()||role()==="Төслийн удирдагч";
 const LIMIT=()=>S.meta?.approveLimit||10000000;
 const canApprove=r=>isDir()||(role()==="Төслийн удирдагч"&&r.by!==S.user.name&&(!S.myProjects||S.myProjects.includes(r.proj))&&(+r.amount||0)<=LIMIT());
@@ -561,15 +582,16 @@ function setTabs(){
   const pend=S.reqs.filter(r=>r.status===ST.WAIT).length, topay=S.reqs.filter(r=>r.status===ST.OK).length;
   const hb=(S.habBadge?.unread||0)+(habMgr()?(S.habBadge?.newReports||0):0), HT=["hab","⛑","ХАБЭА",hb];
   const NEW=S.canReq===false?[]:[["new","＋","Шинэ хүсэлт",0]], MINE=["mine","☰","Миний хүсэлт",0], pmPend=S.reqs.filter(r=>r.status===ST.WAIT&&r.by!==S.user.name).length;
-  const hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN];
-  const T=isBoss()?[["dash","▦","Төсөл",0],["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
-          :isAdmin()?[["set","⚙","Хэрэглэгчид",0],HT,ME]
-          :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,HT,ME]
-          :isPM()?[PT,["wait","⏳","Батлах",pmPend],["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
-          :(isHR()||isMaster())?[PT,...NEW,MINE,HT,ME]
-          :isHab()?[HT,...NEW,MINE,ME]
-          :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
-                  :[...NEW,MINE,HT,ME];
+  const GR=["sched","📊","График",0], hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN];
+  const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
+          :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
+          :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
+          :isPM()?[PT,["wait","⏳","Батлах",pmPend],GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
+          :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,ME]
+          :isHab()?[HT,GR,...NEW,MINE,ME]
+          :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,ME]
+          :isEng()?[GR,...NEW,MINE,HT,ME]
+                  :[...NEW,MINE,GR,HT,ME];
   const cur=isBoss()&&["pay","all"].includes(S.tab)?"wait":S.tab;
   if(S.tab==="new"&&isBoss()){} else if(!cur||!T.some(t=>t[0]===cur)) S.tab=T[0][0];
   $("#tabs").classList.toggle("many",T.length>6);
@@ -591,6 +613,7 @@ function render(){
   if(S.tab==="me") return renderMy(m);
   if(S.tab==="people") return renderPeople(m);
   if(S.tab==="kitchen") return renderKitchen(m);
+  if(S.tab==="sched") return renderSched(m);
   if(S.detail) return renderDetail(m,S.reqs.find(r=>r.id===S.detail));
   if(S.edit) return renderProjEdit(m);
   if(S.uedit) return renderUserEdit(m);
@@ -742,7 +765,7 @@ function renderSettings(m){
    <h3 class="sec">Хэрэглэгчид · ${S.users.length}</h3><div class="small muted" style="margin:0 2px">Энд байгаа хүмүүс л апп-д нэвтэрч хүсэлт илгээнэ. Ажилчин зөвхөн өөрийн хүсэлтийг харна.</div>
    <button class="primary big" data-newuser>＋ Хэрэглэгч нэмэх</button>`;
   h+=[...S.users].sort((a,b)=>(b.status==="Хүлээгдэж буй")-(a.status==="Хүлээгдэж буй")).map(u=>{ const locked=(u.role==="Захирал"&&!isDir())||(isAdmin()&&u.role==="Нягтлан"); const me=u.name===S.user.name;
-    return `<div class="card urow"><div class="nm"><b>${esc(u.name)}${me?" (та)":""}</b><span class="small muted">${esc(u.role)} · ${u.projects?esc(u.projects.join(", ")):"бүх төсөл"} · ${esc(u.phone||"утасгүй")}${u.email?" · "+esc(u.email):""}</span>${u.status==="Хүлээгдэж буй"?`<span class="st st-wait" style="display:inline-block;margin-top:4px">🆕 Шинэ бүртгэл: баталгаажуулна уу</span>`:u.mustChange?`<span class="st st-wait" style="display:inline-block;margin-top:4px">PIN солиогүй</span>`:""}${u.canReq===false?`<span class="tag" style="display:inline-block;margin-top:4px">Хүсэлт илгээхгүй</span>`:""}</div>
+    return `<div class="card urow"><div class="nm"><b>${esc(u.name)}${me?" (та)":""}</b><span class="small muted">${esc(u.role)} · ${u.projects?esc(u.projects.join(", ")):"бүх төсөл"} · ${esc(u.phone||"утасгүй")}${u.email?" · "+esc(u.email):""}</span>${u.status==="Хүлээгдэж буй"?`<span class="st st-wait" style="display:inline-block;margin-top:4px">🆕 Шинэ бүртгэл: баталгаажуулна уу</span>`:u.mustChange?`<span class="st st-wait" style="display:inline-block;margin-top:4px">PIN солиогүй</span>`:""}${u.canReq===false?`<span class="tag" style="display:inline-block;margin-top:4px">Хүсэлт илгээхгүй</span>`:""}${u.sched?`<span class="tag" style="display:inline-block;margin-top:4px">📊 График хөтлөгч</span>`:""}</div>
      ${locked?"":`<button data-edituser="${esc(u.name)}">${u.status==="Хүлээгдэж буй"?"Баталгаажуулах":"Засах"}</button>`}
      ${locked||me?"":`<button class="danger" data-deluser="${esc(u.name)}">${S.delAsk===u.name?"Дахин дарж устга":"Хасах"}</button>`}</div>`; }).join("");
   if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Үүнээс дээш дүнтэй хүсэлтийг зөвхөн захирал батална. Нягтлан батлахгүй, батлагдсан хүсэлтийг төлнө.</div><button data-setlimit="">Хадгалах</button></div>`;
@@ -769,6 +792,8 @@ function renderUserEdit(m){
      <button type="button" data-up="*" aria-pressed="${!u.projects}">Бүх төсөл</button>${projChoices(u).map(c=>`<button type="button" data-up="${esc(c)}" aria-pressed="${!!u.projects&&u.projects.includes(c)}">${esc(c)}</button>`).join("")}</div>
      <div class="small muted" style="margin-top:4px">Хэд хэдэн төсөл сонгож болно. «Бүх төсөл» сонговол шинээр нэмэгдэх төслүүд ч автоматаар орно.</div></div>
    <label class="chk"><input type="checkbox" id="u_canreq" ${u.canReq===false?"":"checked"}> Төлбөрийн хүсэлт илгээх эрхтэй</label>
+   <label class="chk"><input type="checkbox" id="u_sched" ${u.sched?"checked":""}> 📊 Ажлын график хөтлөх (зөвхөн Инженер)</label>
+   <div class="small muted" style="margin-top:-6px">Төсөл бүрт нэг л инженер график хөтөлнө. Энэ инженерт чагт тавихад ижил төслийн өмнөх хөтлөгчөөс эрх автоматаар хасагдана. Графикийг бүх ажилтан харна.</div>
    <div class="small muted" style="margin-top:-6px">Богино хугацааны, өндөр настай зэрэг хүсэлт илгээх шаардлагагүй ажилтанд чагтыг авна. Ирц, даалгавар, ХАБЭА хэвээр ажиллана.</div>
    <label class="f">Имэйл (шинэ хүсэлтийн мэдэгдэл авах бол)<input id="u_email" type="email" value="${esc(u.email)}" placeholder="заавал биш"></label>
    <div class="card" style="background:var(--soft);border:none">
@@ -777,7 +802,7 @@ function renderUserEdit(m){
       :`<div class="small muted">PIN-г нууцалж хадгалдаг тул хэн ч харах боломжгүй. Мартсан бол шинэ түр PIN үүсгэнэ.</div><button type="button" class="big" data-pinreset="new" style="margin-top:8px" ${u.name===S.user.name?"disabled":""}>Түр PIN шинээр үүсгэх</button>`}
    </div>
    <details><summary class="small">Үүрэг бүрийн эрх</summary><div class="small muted" style="margin-top:6px;line-height:1.5">
-     <b>Ажилчин, Чанарын инженер:</b> хүсэлт илгээх (эрхтэй бол), өөрийн ирц, даалгавар, ХАБЭА. <b>Оператор:</b> + техникийн түлш, заалт оруулах. <b>Механик:</b> + техник бүртгэх, засах, бүх түлшний түүх. <b>Нярав:</b> + түлш олголт, бүх түүх.
+     <b>Инженер:</b> хүсэлт илгээх, ажлын график харах; «график хөтлөх» чагттай бол тухайн төслийн графикийг гаргаж, өдөр бүрийн гүйцэтгэлийг оруулна (санхүүгийн мэдээлэл харахгүй). <b>Ажилчин, Чанарын инженер:</b> хүсэлт илгээх (эрхтэй бол), өөрийн ирц, даалгавар, ХАБЭА. <b>Оператор:</b> + техникийн түлш, заалт оруулах. <b>Механик:</b> + техник бүртгэх, засах, бүх түлшний түүх. <b>Нярав:</b> + түлш олголт, бүх түүх.
      <b>Мастер:</b> бригадынхаа ирц тэмдэглэх, даалгавар өгөх. <b>Тогооч:</b> хоолны мэдэгдэл. <b>ХАБ инженер:</b> өдрийн ХАБ заавар, аюултай нөхцөлийн мэдээлэл.
      <b>Төслийн удирдагч:</b> өөрийн төслийн хүсэлтийг ${fmt(LIMIT())} ₮ хүртэл батлах, ирц, даалгавар, чөлөө. <b>Хүний нөөц:</b> ажилтан бүртгэх, ирц. <b>Нягтлан:</b> батлагдсан хүсэлтийг төлөх, санхүү, цалин, албан бичиг (батлахгүй).
      <b>Админ:</b> зөвхөн хэрэглэгч удирдах. <b>Захирал:</b> бүх эрх, бүх дүнгийн хүсэлт батлах. PIN: талбайн ажилтан 6, бусад 8 оронтой.</div></details>
@@ -883,7 +908,7 @@ function renderRegister(m){
 }
 function renderContacts(m){
   if(!S.contactList){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; api("contacts").then(r=>{ S.contactList=r.contacts; if(S.contacts) render(); }).catch(e=>toast(e.message)); return; }
-  const ORD=["Захирал","Нягтлан","Төслийн удирдагч","ХАБ инженер","Хүний нөөц","Мастер","Механик","Нярав","Чанарын инженер","Тогооч","Оператор","Ажилчин","Админ"];
+  const ORD=["Захирал","Нягтлан","Төслийн удирдагч","ХАБ инженер","Хүний нөөц","Мастер","Механик","Нярав","Инженер","Чанарын инженер","Тогооч","Оператор","Ажилчин","Админ"];
   const q=(S.cq||"").toLowerCase(), L=S.contactList.filter(c=>!q||(c.name+" "+c.role+" "+(c.position||"")+" "+c.phone).toLowerCase().includes(q)).sort((a,b)=>(ORD.indexOf(a.role)-ORD.indexOf(b.role))||a.name.localeCompare(b.name));
   m.innerHTML=`<div><button data-ctclose="">‹ Буцах</button></div><h3 class="sec">📞 Утасны жагсаалт · ${S.contactList.length}</h3>
    <input id="ctq" type="search" placeholder="Нэр, албан тушаал, дугаараар хайх" value="${esc(S.cq||"")}" style="margin-bottom:8px">
@@ -1985,6 +2010,146 @@ document.addEventListener("submit",async ev=>{
   try{ const x=await api("register",{r}); S.reg=false; render(); result(true,"Бүртгэл илгээгдлээ",`Таны нэвтрэх нэр: ${r.phone}. Хүний нөөц эсвэл захирал баталгаажуулсны дараа энэ утас, PIN-ээрээ нэвтэрнэ.`); }
   catch(e){ showErr("#rgErr",e.message); b.disabled=false; }
 },true);
+const {renderSched,schedReset}=(()=>{
+const SC={data:null,busy:false,proj:null,view:"chart",edit:null,item:null,date:null,delAsk:null};
+const UNITS=["м","м²","м³","км","тн","ш","л","цаг"];
+const dn=s=>Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))/864e5;
+const ds=n=>new Date(n*864e5).toISOString().slice(0,10);
+const MON=["1-р сар","2-р сар","3-р сар","4-р сар","5-р сар","6-р сар","7-р сар","8-р сар","9-р сар","10-р сар","11-р сар","12-р сар"];
+const nf=x=>{ const v=Math.round((+x||0)*100)/100; return v.toLocaleString("en-US",{maximumFractionDigits:2}); };
+const pc=x=>Math.round(x)+"%";
+function schedReset(){ SC.data=null; }
+async function loadSched(){ if(SC.busy) return; SC.busy=true; try{ SC.data=await api("sched"); if(S.tab==="sched") render(); }catch(e){ toast("Ачаалж чадсангүй: "+e.message); } finally{ SC.busy=false; } }
+function stat(it,logs,today){
+  const done=logs.filter(l=>l.item===it.id).reduce((a,l)=>a+(+l.qty||0),0), act=it.qty>0?done/it.qty*100:0;
+  const s=dn(it.start), e=dn(it.end), t=dn(today), dur=e-s+1;
+  const plan=t<s?0:t>=e?100:(t-s+1)/dur*100;
+  const diff=act-plan;
+  const st=act>=100?["done","Дууссан"]:(plan===0&&act===0)?["idle","Эхлээгүй"]:diff>=-5?["ok","Хэвийн"]:diff>=-15?["warn","Бага зэрэг хоцорсон"]:["bad","Хоцорсон"];
+  return {done,act,plan,diff,st,dur};
+}
+function canEd(p){ return !!SC.data&&SC.data.canEdit.includes(p); }
+function projSum(items,logs,today){
+  let w=0,pl=0,ac=0; for(const it of items){ const x=stat(it,logs,today); w+=x.dur; pl+=x.dur*x.plan; ac+=x.dur*Math.min(x.act,100); }
+  if(!w) return null; const plan=pl/w, act=ac/w, diff=act-plan;
+  return {plan,act,diff,st:act>=100?"done":diff>=-5?"ok":diff>=-15?"warn":"bad"};
+}
+function gantt(items,logs,today){
+  if(!items.length) return "";
+  let a=Math.min(...items.map(i=>dn(i.start))), b=Math.max(...items.map(i=>dn(i.end)));
+  const lg=logs.filter(l=>items.some(i=>i.id===l.item)&&+l.qty>0); if(lg.length){ a=Math.min(a,...lg.map(l=>dn(l.date))); b=Math.max(b,...lg.map(l=>dn(l.date))); }
+  const n=b-a+1, DW=n>150?8:n>90?12:n>45?16:22, W=n*DW, t=dn(today);
+  let mh="", dh="";
+  for(let d=a;d<=b;d++){ const s=ds(d), day=+s.slice(8,10);
+    if(d===a||day===1) mh+=`<div class="gm" style="left:${(d-a)*DW}px">${MON[+s.slice(5,7)-1]}${d===a||s.slice(5,7)==="01"?" "+s.slice(0,4):""}</div>`;
+    if(DW>=16||day%5===0||day===1) dh+=`<div class="gd${d===t?" gt":""}" style="left:${(d-a)*DW}px;width:${DW}px">${day}</div>`; }
+  const grid=`background-image:repeating-linear-gradient(90deg,transparent 0 ${DW-1}px,var(--gl) ${DW-1}px ${DW}px)`;
+  SC.tx=t>=a&&t<=b?(t-a)*DW:t>b?W:0;
+  const tl=t>=a&&t<=b?`<div class="gtoday" style="left:${(t-a)*DW+DW/2}px"></div>`:"";
+  const rows=items.map(it=>{ const x=stat(it,logs,today), s=dn(it.start)-a, w=(dn(it.end)-dn(it.start)+1)*DW, pw=Math.min(x.plan,100);
+    const marks=logs.filter(l=>l.item===it.id&&+l.qty>0).map(l=>`<i class="gk" style="left:${(dn(l.date)-a)*DW+DW/2-3}px" title="${esc(l.date)}: ${nf(l.qty)} ${esc(it.unit)}"></i>`).join("");
+    return `<div class="gr"><button class="gn" data-schitem="${esc(it.id)}"><b>${esc(it.name)}</b><span class="small muted">${nf(x.done)}/${nf(it.qty)} ${esc(it.unit)}</span></button>
+      <div class="gl" style="width:${W}px;${grid}">${tl}
+        <div class="gb" style="left:${s*DW}px;width:${w}px"><div class="gp" style="width:${pw}%"></div><div class="ga g-${x.st[0]}" style="width:${Math.min(x.act,100)}%"></div><span class="gx">${pc(x.act)}</span></div>${marks}</div></div>`; }).join("");
+  return `<div class="gwrap"><div class="gr gh"><div class="gn"></div><div class="gl" style="width:${W}px;height:34px">${mh}${dh}</div></div>${rows}</div>`;
+}
+function legend(){ return `<div class="glg small muted"><span><i class="g-ok"></i>Хэвийн</span><span><i class="g-warn"></i>Бага зэрэг хоцорсон</span><span><i class="g-bad"></i>Хоцорсон</span><span><i class="g-done"></i>Дууссан</span><span><i class="gpl"></i>Өнөөдрийн төлөвлөгөө</span><span><i class="gk0"></i>Ажил хийсэн өдөр</span><span><i class="gt0"></i>Өнөөдөр</span></div>`; }
+function renderSched(m){
+  if(!SC.data){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; loadSched(); return; }
+  const D=SC.data, P=D.projects;
+  if(!P.length){ m.innerHTML=`<div class="card empty">Идэвхтэй төсөл алга.</div>`; return; }
+  if(!SC.proj||!P.some(p=>p.code===SC.proj)) SC.proj=(P.find(p=>D.items.some(i=>i.proj===p.code))||P.find(p=>canEd(p.code))||P[0]).code;
+  if(SC.view==="edit") return editForm(m);
+  if(SC.view==="day") return dayForm(m);
+  if(SC.view==="item") return itemView(m);
+  const p=P.find(x=>x.code===SC.proj), items=D.items.filter(i=>i.proj===SC.proj).sort((a,b)=>a.ord-b.ord||a.start.localeCompare(b.start)), logs=D.logs.filter(l=>l.proj===SC.proj), ed=canEd(SC.proj);
+  const sm=projSum(items,logs,D.today);
+  let h=`<div class="chips">${P.map(x=>`<button data-schproj="${esc(x.code)}" aria-pressed="${x.code===SC.proj}">${esc(x.code)}</button>`).join("")}</div>`;
+  h+=`<div class="card"><div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:17px">${esc(p.name||p.code)}</b><span class="small muted">${esc(D.today)}</span></div>
+    <div class="small muted" style="margin-top:2px">График хөтлөгч: ${p.editor?`<b>${esc(p.editor)}</b>${p.editorPhone?` · <a href="tel:${esc(p.editorPhone)}">${esc(p.editorPhone)}</a>`:""}`:"томилоогүй"}</div>
+    ${sm?`<div class="gsum"><div><div class="small muted">Төлөвлөгөөгөөр</div><b>${pc(sm.plan)}</b></div><div><div class="small muted">Биелэлт</div><b class="t-${sm.st}">${pc(sm.act)}</b></div><div><div class="small muted">Зөрүү</div><b class="t-${sm.st}">${sm.diff>=0?"+":""}${pc(sm.diff)}</b></div></div>
+      <div class="gbar"><div class="gp" style="width:${Math.min(sm.plan,100)}%"></div><div class="ga g-${sm.st}" style="width:${Math.min(sm.act,100)}%"></div></div>`:`<div class="small muted" style="margin-top:8px">Энэ төсөлд ажлын график хараахан оруулаагүй байна.</div>`}
+    ${ed?`<div class="actions" style="margin-top:10px"><button data-schnew>＋ Ажил нэмэх</button>${items.length?`<button class="primary" data-schday>✍ Өдрийн гүйцэтгэл</button>`:""}</div>`:""}</div>`;
+  if(items.length) h+=`<h3 class="sec">Календарчилсан график</h3>${gantt(items,logs,D.today)}${legend()}
+    <h3 class="sec">Ажлын явц</h3>`+items.map(it=>{ const x=stat(it,logs,D.today);
+      return `<button class="card req" data-schitem="${esc(it.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(it.name)}</b><span class="st st-${x.st[0]}">${x.st[1]}</span></div>
+        <div class="meta">${esc(it.start)} — ${esc(it.end)} · ${x.dur} өдөр · ${nf(x.done)} / ${nf(it.qty)} ${esc(it.unit)}</div>
+        <div class="gbar"><div class="gp" style="width:${Math.min(x.plan,100)}%"></div><div class="ga g-${x.st[0]}" style="width:${Math.min(x.act,100)}%"></div></div>
+        <div class="small muted" style="margin-top:4px">Биелэлт <b class="t-${x.st[0]}">${pc(x.act)}</b> · төлөвлөгөөгөөр ${pc(x.plan)}</div></button>`; }).join("");
+  m.innerHTML=h;
+  const g=m.querySelector(".gwrap"); if(g&&SC.tx) g.scrollLeft=Math.max(0,SC.tx-(g.clientWidth-128)*0.6);
+}
+function editForm(m){
+  const it=SC.edit;
+  m.innerHTML=`<button data-schback>‹ Буцах</button><form class="card" id="schForm" style="margin-top:10px;display:grid;gap:12px">
+    <h3 style="margin:0">${it.id?"Ажил засах":"Шинэ ажил"} · ${esc(it.proj)}</h3>
+    <label class="f">Ажлын нэр<input id="sc_name" value="${esc(it.name||"")}" placeholder="Жишээ: Асфальтбетон хучилт 5см"></label>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px"><label class="f">Тоо хэмжээ<input id="sc_qty" inputmode="decimal" value="${esc(it.qty||"")}" placeholder="12000"></label>
+    <label class="f">Нэгж<input id="sc_unit" list="scUnits" value="${esc(it.unit||"")}" placeholder="м²"><datalist id="scUnits">${UNITS.map(u=>`<option value="${u}">`).join("")}</datalist></label></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="f">Эхлэх<input id="sc_start" type="date" value="${esc(it.start||"")}"></label><label class="f">Дуусах<input id="sc_end" type="date" value="${esc(it.end||"")}"></label></div>
+    ${it.id?`<label class="f">Дараалал<input id="sc_ord" inputmode="numeric" value="${esc(it.ord||"")}"></label>`:""}
+    <div id="scErr" class="banner" hidden></div>
+    <button class="primary big" id="scSave" type="submit">Хадгалах</button>
+    ${it.id?`<button type="button" class="danger" data-schdel="${esc(it.id)}">${SC.delAsk===it.id?"Дахин дарж устгана уу (гүйцэтгэлийн бүртгэл хамт устна)":"Ажлыг устгах"}</button>`:""}</form>`;
+}
+function dayForm(m){
+  const D=SC.data, date=SC.date||(SC.date=D.today), items=D.items.filter(i=>i.proj===SC.proj).sort((a,b)=>a.ord-b.ord);
+  const on=D.logs.filter(l=>l.proj===SC.proj&&l.date===date);
+  m.innerHTML=`<button data-schback>‹ Буцах</button><form class="card" id="schDay" style="margin-top:10px;display:grid;gap:12px">
+    <h3 style="margin:0">Өдрийн гүйцэтгэл · ${esc(SC.proj)}</h3>
+    <label class="f">Огноо<input id="sd_date" type="date" max="${esc(D.today)}" value="${esc(date)}"></label>
+    <div class="small muted" style="margin-top:-6px">Тухайн өдөр хийсэн тоо хэмжээг бичнэ. Хоосон орхивол тэр өдөр хийгээгүй гэж тооцно.</div>
+    ${items.map(it=>{ const x=stat(it,D.logs,D.today), cur=on.find(l=>l.item===it.id), inR=date>=it.start&&date<=it.end;
+      return `<div style="border-top:1px solid var(--line);padding-top:10px${inR?"":";opacity:.6"}"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(it.name)}</b><span class="small muted">${pc(x.act)}</span></div>
+        <div class="small muted">Нийт ${nf(x.done)} / ${nf(it.qty)} ${esc(it.unit)}${inR?"":" · төлөвлөсөн хугацаанаас гадуур"}</div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:6px"><input data-sdq="${esc(it.id)}" inputmode="decimal" placeholder="0 ${esc(it.unit)}" value="${cur?esc(cur.qty):""}"><input data-sdn="${esc(it.id)}" placeholder="Тэмдэглэл (заавал биш)" value="${cur?esc(cur.note):""}"></div></div>`; }).join("")}
+    <div id="sdErr" class="banner" hidden></div>
+    <button class="primary big" id="sdSave" type="submit">Хадгалах</button></form>`;
+}
+function itemView(m){
+  const D=SC.data, it=D.items.find(i=>i.id===SC.item); if(!it){ SC.view="chart"; return renderSched(m); }
+  const x=stat(it,D.logs,D.today), L=D.logs.filter(l=>l.item===it.id).sort((a,b)=>a.date.localeCompare(b.date));
+  let cum=0; const rows=L.map(l=>{ cum+=+l.qty||0; return {...l,cum}; }).reverse();
+  m.innerHTML=`<button data-schback>‹ Буцах</button><div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:17px">${esc(it.name)}</b><span class="st st-${x.st[0]}">${x.st[1]}</span></div>
+    <div class="meta">${esc(it.proj)} · ${esc(it.start)} — ${esc(it.end)} · ${x.dur} өдөр</div>
+    <div class="gsum"><div><div class="small muted">Хийсэн</div><b>${nf(x.done)} ${esc(it.unit)}</b></div><div><div class="small muted">Нийт</div><b>${nf(it.qty)} ${esc(it.unit)}</b></div><div><div class="small muted">Биелэлт</div><b class="t-${x.st[0]}">${pc(x.act)}</b></div></div>
+    <div class="gbar"><div class="gp" style="width:${Math.min(x.plan,100)}%"></div><div class="ga g-${x.st[0]}" style="width:${Math.min(x.act,100)}%"></div></div>
+    <div class="small muted" style="margin-top:4px">Өнөөдрийн байдлаар төлөвлөгөөгөөр ${pc(x.plan)} (${nf(it.qty*Math.min(x.plan,100)/100)} ${esc(it.unit)}) хийгдсэн байх ёстой. Өдөрт дунджаар ${nf(it.qty/x.dur)} ${esc(it.unit)}.</div>
+    ${canEd(it.proj)?`<div class="actions" style="margin-top:10px"><button data-schedit="${esc(it.id)}">Засах</button><button class="primary" data-schday>✍ Гүйцэтгэл оруулах</button></div>`:""}</div>
+    <h3 class="sec">Өдөр бүрийн гүйцэтгэл</h3>${rows.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Хийсэн</th><th>Нийт</th></tr>${rows.map(l=>`<tr><td>${esc(l.date)}${l.note?`<div class="small muted">${esc(l.note)}</div>`:""}</td><td>${nf(l.qty)}</td><td>${nf(l.cum)} <span class="small muted">${pc(it.qty?l.cum/it.qty*100:0)}</span></td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйцэтгэл бүртгэгдээгүй байна.</div>`}`;
+}
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("[data-schproj],[data-schnew],[data-schday],[data-schitem],[data-schedit],[data-schback],[data-schdel]"); if(!t||S.tab!=="sched") return;
+  const d=t.dataset; ev.stopPropagation();
+  if(d.schproj!=null){ SC.proj=d.schproj; render(); return; }
+  if(t.hasAttribute("data-schnew")){ SC.edit={proj:SC.proj,start:SC.data.today}; SC.view="edit"; SC.delAsk=null; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-schday")){ SC.view="day"; SC.date=SC.data.today; render(); scrollTo(0,0); return; }
+  if(d.schitem){ SC.item=d.schitem; SC.view="item"; render(); scrollTo(0,0); return; }
+  if(d.schedit){ SC.edit={...SC.data.items.find(i=>i.id===d.schedit)}; SC.view="edit"; SC.delAsk=null; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-schback")){ SC.view=SC.view==="edit"&&SC.edit?.id?"item":"chart"; render(); return; }
+  if(d.schdel){ if(SC.delAsk!==d.schdel){ SC.delAsk=d.schdel; render(); return; } t.disabled=true;
+    try{ SC.data=await api("schedItemDel",{id:d.schdel}); SC.view="chart"; SC.delAsk=null; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+},true);
+document.addEventListener("change",ev=>{ if(ev.target.id==="sd_date"&&S.tab==="sched"){ SC.date=ev.target.value||SC.data.today; render(); } },true);
+document.addEventListener("submit",async ev=>{
+  const f=ev.target; if(f.id!=="schForm"&&f.id!=="schDay") return; ev.preventDefault(); ev.stopPropagation();
+  if(f.id==="schForm"){
+    const it={id:SC.edit.id||"",proj:SC.edit.proj,name:$("#sc_name").value.trim(),unit:$("#sc_unit").value.trim(),qty:+$("#sc_qty").value.replace(/[^\d.]/g,"")||0,start:$("#sc_start").value,end:$("#sc_end").value,ord:$("#sc_ord")?$("#sc_ord").value:""};
+    if(!it.name) return showErr("#scErr","Ажлын нэрийг бичнэ үү.");
+    if(!(it.qty>0)) return showErr("#scErr","Тоо хэмжээг оруулна уу.");
+    if(!it.start||!it.end) return showErr("#scErr","Эхлэх, дуусах огноог оруулна уу.");
+    if(it.end<it.start) return showErr("#scErr","Дуусах огноо эхлэхээс өмнө байна.");
+    const b=$("#scSave"); b.disabled=true;
+    try{ SC.data=await api("schedItem",{it}); SC.view=it.id?"item":"chart"; toast("Хадгалагдлаа"); render(); }catch(e){ showErr("#scErr",e.message); b.disabled=false; }
+  } else {
+    const date=$("#sd_date").value, entries=[...document.querySelectorAll("[data-sdq]")].map(i=>({item:i.dataset.sdq,qty:i.value.replace(/[^\d.]/g,""),note:document.querySelector(`[data-sdn="${i.dataset.sdq}"]`).value}));
+    if(!date) return showErr("#sdErr","Огноо сонгоно уу.");
+    const b=$("#sdSave"); b.disabled=true;
+    try{ SC.data=await api("schedDay",{proj:SC.proj,date,entries}); SC.view="chart"; toast("Гүйцэтгэл хадгалагдлаа"); render(); scrollTo(0,0); }catch(e){ showErr("#sdErr",e.message); b.disabled=false; }
+  }
+},true);
+return {renderSched,schedReset};
+})();
 const cacheKey=()=>"aas_c_"+(S.user?.name||"");
 function saveCache(){ try{ localStorage.setItem(cacheKey(),JSON.stringify({t:Date.now(),reqs:S.reqs,meta:S.meta,dash:S.dash,fuel:S.fuel,myProjects:S.myProjects})); }catch(e){} }
 function readCache(){ try{ const c=JSON.parse(localStorage.getItem(cacheKey())); if(c&&Date.now()-c.t<7*864e5){ S.reqs=c.reqs||[]; S.meta=c.meta||null; S.dash=c.dash||null; S.fuel=c.fuel||null; S.myProjects=c.myProjects||null; return true; } }catch(e){} return false; }
@@ -2001,7 +2166,7 @@ async function load(quiet){
     const pend=S.reqs.filter(r=>r.status===ST.WAIT).length;
     if(isBoss()&&S.lastPending!=null&&pend>S.lastPending){ toast(`Шинэ хүсэлт ирлээ (${pend-S.lastPending})`); try{ if(Notification.permission==="granted") new Notification("Аасгалдай",{body:`${pend} хүсэлт батлахыг хүлээж байна`}); }catch(e){} }
     S.lastPending=pend;
-    const editing=S.edit||S.uedit||S.incEdit||S.tab==="new"||S.pinChange||S.ff||S.eqEdit||S.habEdit||(S.tab==="hab"&&S.hview==="report")||S.tab==="people"||S.tab==="me"||S.tab==="kitchen";
+    const editing=S.edit||S.uedit||S.incEdit||S.tab==="new"||S.pinChange||S.ff||S.eqEdit||S.habEdit||(S.tab==="hab"&&S.hview==="report")||S.tab==="people"||S.tab==="me"||S.tab==="kitchen"||S.tab==="sched";
     if(quiet&&S.tab==="fuel"&&!S.ff&&!S.eqEdit) loadFuel();
     if(!editing||!quiet) render();
   }catch(e){ if(!quiet) toast("Ачаалж чадсангүй: "+e.message); }
@@ -2013,7 +2178,7 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("button"); if(!t) return;
   const D=t.dataset;
   if(t.id==="logout") return logout();
-  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; return load(); }
+  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); return load(); }
   if(D.tab){ S.tab=D.tab; S.detail=S.edit=S.uedit=S.incEdit=null; S.eqEdit=S.ff=S.feq=null; S.habEdit=null; S.pdet=null; S.uedit=null; S.delAsk=null; render(); scrollTo(0,0); return; }
   if(D.go){ S.tab=D.go; render(); scrollTo(0,0); return; }
   if(D.open){ S.detail=D.open; render(); scrollTo(0,0); return; }
@@ -2115,7 +2280,8 @@ document.addEventListener("submit",async e=>{
   }
   if(f.id==="userForm"){
     const u={name:$("#u_name").value.trim(),role:S.uedit.role,phone:$("#u_phone").value.replace(/\D/g,""),email:$("#u_email").value.trim(),position:$("#u_pos").value.trim(),tempPin:S.uedit.tempPin||"",projects:S.uedit.projects?S.uedit.projects:"*",
-      surname:$("#u_sur").value.trim(),given:$("#u_giv").value.trim(),age:$("#u_age").value.replace(/\D/g,""),sex:$("#u_sex").value,canReq:$("#u_canreq").checked};
+      surname:$("#u_sur").value.trim(),given:$("#u_giv").value.trim(),age:$("#u_age").value.replace(/\D/g,""),sex:$("#u_sex").value,canReq:$("#u_canreq").checked,sched:$("#u_sched").checked};
+    if(u.sched&&u.role!=="Инженер") return showErr("#userErr","Ажлын график хөтлөх эрхийг зөвхөн Инженер үүрэгтэй хүнд олгоно.");
     if(Array.isArray(u.projects)&&!u.projects.length) return showErr("#userErr","Ажиллах төслөө сонгоно уу (эсвэл «Бүх төсөл»).");
     if(!u.name) return showErr("#userErr","Нэрээ оруулна уу.");
     if(u.phone.length<8) return showErr("#userErr","Утасны дугаар 8 оронтой байна.");
