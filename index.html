@@ -209,7 +209,7 @@ table.tx tr.tot td{font-weight:600;border-bottom:none;border-top:1px solid var(-
 .a4sub{width:359px;padding:5px 14px 0;margin:34px 0 30px}
 .cn::before,.cn::after{content:"";position:absolute;top:0;width:9px;height:9px;border-top:1.2px solid #111}
 .cn::before{left:0;border-left:1.2px solid #111}.cn::after{right:0;border-right:1.2px solid #111}
-.a4ref{font-family:"AasTimes","Times New Roman",serif;font-size:14.7px;margin-top:11px}
+.a4meta{border-collapse:collapse;margin-top:26px;font-family:"AasTimes","Times New Roman",serif;font-size:14.7px;table-layout:fixed}.a4meta td{padding:2.7px 0;white-space:nowrap}
 .a4p{margin:0;text-align:justify;white-space:pre-wrap}
 .a4resp{margin:26px 0 0 47px}
 .a4sign{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-left:68px;padding-right:15px}
@@ -1695,7 +1695,7 @@ document.addEventListener("submit",async ev=>{ if(ev.target.id!=="mealForm") ret
   catch(err){ b.disabled=false; b.textContent="🍲 Хоол болсон!"; result(false,"Илгээж чадсангүй",err instanceof NetErr?"Интернет холболт алга байна. Холболтоо шалгаад дахин дарна уу.":err.message); } });
 
 const {renderLetters,canLetter}=(()=>{
-const ORG={name:"\"ААСГАЛДАЙ\" ХХК",lines:["Улаанбаатар хот, Баянзүрх дүүрэг,","5-р хороо, 72/30","Утас: 99004998, 88189305","И-мэйл: aasgaldai@gmail.com"]};
+const ORG={name:"\"ААСГАЛДАЙ\" ХХК",lines:["Улаанбаатар хот, Баянзүрх дүүрэг,","5-р хороо, 72/30","Утас: 99004998, 88189305","И-мэйл: aasgaldai@gmail.com","Веб: aasgaldai.mn"]};
 const LCDN="https:"+"/"+"/cdn.jsdelivr.net/npm/";
 function lLoadJS(u){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=u; s.onload=res; s.onerror=()=>rej(new Error("Интернэтээс сан ачаалж чадсангүй. Дахин оролдоно уу.")); document.head.appendChild(s); }); }
 async function needPdf(){
@@ -1712,6 +1712,9 @@ const logoSrc=()=>{ const i=document.querySelector("img.logo"); return i?i.src:"
 function lLines(body){ const L=String(body||"").replace(/\r/g,"").split("\n"); while(L.length&&!L[L.length-1].trim()) L.pop(); while(L.length&&!L[0].trim()) L.shift();
   return L.map(x=>{ let i=0,sp=0; while(i<x.length&&(x[i]==="\t"||x[i]===" ")){ if(x[i]==="\t") sp+=4; else sp+=1; i++; } return {ind:Math.floor(sp/4),text:x.slice(i).replace(/\s+$/,""),blank:!x.trim()}; }); }
 function lRuns(t){ const out=[]; String(t).split(/(\*\*[^*]+\*\*)/).forEach(p=>{ if(!p) return; if(/^\*\*[^*]+\*\*$/.test(p)) out.push({t:p.slice(2,-2),b:true}); else out.push({t:p,b:false}); }); return out; }
+const MCOL=[13,33,6,25];
+function lMeta(l){ const has=l.refDate||l.refNo;
+  return [["Огноо",lDots(l.date),"№",l.no||"___/__"],["танай",(has?(lDots(l.refDate)||"__________"):"__________")+" -ны","№",(has?(l.refNo||"__________"):"__________")+" -т"]]; }
 function lRef(l){ return (l.refDate||l.refNo)?`танай ${lDots(l.refDate)||"________"} -ны № ${l.refNo||"________"} -т`:"танай ____________ -ны № ____________ -т"; }
 function dataUrlBytes(u){ const b=atob(u.split(",")[1]||""); const a=new Uint8Array(b.length); for(let i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
 
@@ -1720,9 +1723,9 @@ async function lStamp(){ if(S.L.stampData!==undefined) return S.L.stampData; con
 const STAMP_W=58.7, STAMP_H=50.8, PXMM=96/25.4;
 function letterBlocks(l,stamp){
   const runs=p=>lRuns(p).map(r=>r.b?`<b>${esc(r.t)}</b>`:esc(r.t)).join("");
-  const B=[`<div class="a4top"><div class="a4org"><img src="${logoSrc()}" alt=""><b>${esc(ORG.name)}</b>${ORG.lines.map(x=>`<span>${esc(x)}</span>`).join("")}
-     <div class="a4no">Огноо&nbsp; ${esc(lDots(l.date))}<span style="display:inline-block;width:46px"></span>№ ${esc(l.no||"___/__")}</div></div>
-    <div class="a4to"><i class="cn"></i><div>${esc(l.to||"Хаана")}</div></div></div><div class="a4ref">${esc(lRef(l))}</div>`,
+  const B=[`<div class="a4top"><div class="a4org"><img src="${logoSrc()}" alt=""><b>${esc(ORG.name)}</b>${ORG.lines.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
+    <div class="a4to"><i class="cn"></i><div>${esc(l.to||"Хаана")}</div></div></div>
+   <table class="a4meta">${lMeta(l).map(r=>`<tr>${r.map((c,i)=>`<td style="width:${(MCOL[i]*PXMM).toFixed(0)}px">${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`,
     `<div class="a4sub"><i class="cn"></i><div>${esc(l.title||"Гарчиг")}</div></div>`];
   const ls=lLines(l.body);
   if(!ls.length) B.push(`<p class="a4p muted">Агуулга…</p>`);
@@ -1746,11 +1749,10 @@ async function letterPdf(l,stamp){
   const para=x=>x.blank?{text:" "}:{text:lRuns(x.text).map(r=>({text:r.t,bold:r.b})),alignment:"justify",leadingIndent:mm(12.5*x.ind)};
   const content=[
     {columns:[
-      {width:mm(78),stack:[{image:logoSrc(),fit:[mm(17),mm(17)],alignment:"center"},{text:ORG.name,font:"Times",bold:true,alignment:"center",fontSize:12,margin:[0,3,0,1]},{text:ORG.lines.join("\n"),font:"Times",alignment:"center",fontSize:10,lineHeight:1.1},
-        {text:[`Огноо  ${lDots(l.date)}`,{text:"              "},`№ ${l.no}`],font:"Times",fontSize:11,margin:[0,mm(6),0,0],alignment:"center"}]},
+      {width:mm(78),stack:[{image:logoSrc(),fit:[mm(17),mm(17)],alignment:"center"},{text:ORG.name,font:"Times",bold:true,alignment:"center",fontSize:12,margin:[0,3,0,1]},{text:ORG.lines.join("\n"),font:"Times",alignment:"center",fontSize:10,lineHeight:1.1}]},
       {width:"*",text:""},
       {width:mm(72),margin:[0,mm(20),0,0],stack:[corners(mm(72)),{text:l.to,alignment:"center",margin:[mm(3),1,mm(3),0]}]}]},
-    {text:lRef(l),font:"Times",fontSize:11,margin:[0,mm(3),0,0]},
+    {table:{widths:MCOL.map(mm),body:lMeta(l).map(r=>r.map(c=>({text:c,font:"Times",fontSize:11})))},layout:{hLineWidth:()=>0,vLineWidth:()=>0,paddingLeft:()=>0,paddingRight:()=>0,paddingTop:()=>2,paddingBottom:()=>2},margin:[0,mm(7),0,0]},
     {columns:[{width:mm(95),stack:[corners(mm(95)),{text:l.title,alignment:"center",margin:[mm(4),2,mm(4),0]}]},{width:"*",text:""}],margin:[0,mm(9),0,mm(8)]},
     ...lLines(l.body).map(para),
     {unbreakable:true,stack:[{text:"Хүндэтгэсэн,",margin:[mm(12.5),mm(7),0,0]},
@@ -1766,8 +1768,7 @@ async function letterDocx(l,stamp){
   const cb={top:none,bottom:none,left:none,right:none};
   const P=(text,o={})=>new D.Paragraph({alignment:o.al,spacing:{after:o.after||0,before:o.before||0,line:o.line},indent:o.indent,tabStops:o.tabs,children:(Array.isArray(text)?text:[text]).map(t=>typeof t==="string"?new D.TextRun({text:t,font:o.font||A,size:o.size||24,bold:o.bold}):t)});
   const logo=new D.ImageRun({data:dataUrlBytes(logoSrc()),transformation:{width:64,height:64}});
-  const left=[new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[logo]}),P(ORG.name,{al:D.AlignmentType.CENTER,font:T,size:24,bold:true,before:60}),...ORG.lines.map(x=>P(x,{al:D.AlignmentType.CENTER,font:T,size:20})),
-    P(`Огноо  ${lDots(l.date)}      № ${l.no}`,{al:D.AlignmentType.CENTER,font:T,size:21,before:280})];
+  const left=[new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[logo]}),P(ORG.name,{al:D.AlignmentType.CENTER,font:T,size:24,bold:true,before:60}),...ORG.lines.map(x=>P(x,{al:D.AlignmentType.CENTER,font:T,size:20}))];
   const right=[P(" ",{before:tw(18)}),P(["┌",new D.TextRun({text:"\t┐",font:A,size:24})],{tabs:[{type:D.TabStopType.RIGHT,position:tw(68)}]}),...String(l.to).split(/\n/).map(x=>P(x,{al:D.AlignmentType.CENTER}))];
   const head=new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(80),tw(18),tw(72)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
     new D.TableCell({width:{size:tw(80),type:D.WidthType.DXA},borders:cb,children:left}),new D.TableCell({width:{size:tw(18),type:D.WidthType.DXA},borders:cb,children:[P("")]}),new D.TableCell({width:{size:tw(72),type:D.WidthType.DXA},borders:cb,children:right})]})]});
@@ -1777,8 +1778,9 @@ async function letterDocx(l,stamp){
     new D.TableCell({width:{size:tw(62),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:[P((l.signTitle||"")+",",{indent:{left:tw(12)}})]}),
     new D.TableCell({width:{size:tw(64),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:st}),
     new D.TableCell({width:{size:tw(44),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:[P(l.signName||"",{al:D.AlignmentType.RIGHT})]})]})]});
+  const meta=new D.Table({width:{size:tw(MCOL.reduce((x,y)=>x+y,0)),type:D.WidthType.DXA},columnWidths:MCOL.map(tw),layout:D.TableLayoutType.FIXED,borders:nb,rows:lMeta(l).map(r=>new D.TableRow({children:r.map((c,i)=>new D.TableCell({width:{size:tw(MCOL[i]),type:D.WidthType.DXA},borders:cb,margins:{top:30,bottom:30,left:0,right:0},children:[P(c,{font:T,size:22})]}))}))});
   const doc=new D.Document({creator:"Аасгалдай ХХК",title:"Албан бичиг "+l.no,sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:tw(15),bottom:tw(18),left:tw(25),right:tw(15)}}},children:[
-    head,P(lRef(l),{font:T,size:21,before:160}),
+    head,P("",{before:tw(5)}),meta,
     P(["┌",new D.TextRun({text:"\t┐",font:A,size:24})],{before:tw(8),tabs:[{type:D.TabStopType.RIGHT,position:tw(95)}]}),
     P(l.title,{al:D.AlignmentType.CENTER,indent:{right:tw(170-25-15-95)},after:tw(7)}),
     ...body,P("Хүндэтгэсэн,",{indent:{left:tw(12.5)},before:300}),sign]}]});
