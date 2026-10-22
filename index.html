@@ -239,6 +239,7 @@ div.f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .gtoday{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--bad);opacity:.7;z-index:1}
 .glg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 2px 0}.glg span{display:inline-flex;align-items:center;gap:5px}.glg i{display:inline-block;width:14px;height:10px;border-radius:3px}
 .glg .gpl{background:repeating-linear-gradient(45deg,var(--muted) 0 2px,transparent 2px 5px);border:1px solid var(--line)}.glg .gk0{width:7px;height:7px;border-radius:50%;background:var(--ink)}.glg .gt0{width:2px;height:12px;background:var(--bad)}
+.ybig{margin:12px 0 6px}.ybig .v{font-size:30px;font-weight:700;font-family:var(--mono)}button.lnk{border:0;background:none;padding:0;min-height:0;color:var(--accent);font-weight:600;text-decoration:underline}button.lnk.danger{color:var(--bad);font-weight:400;font-size:12px}
 .gtbl{width:100%;border-collapse:collapse;font-size:14px}.gtbl th,.gtbl td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}.gtbl th:first-child,.gtbl td:first-child{text-align:left}.gtbl tr:last-child td{border-bottom:0}
 </style>
 
@@ -425,9 +426,10 @@ let toastT; function toast(m){ let t=$(".toast"); if(!t){t=document.createElemen
 async function copy(text,label){ try{ await navigator.clipboard.writeText(text); toast(label+" хуулагдлаа"); }catch(e){ const el=document.createElement("textarea"); el.value=text; document.body.appendChild(el); el.select(); let ok=false; try{ok=document.execCommand("copy")}catch(x){} el.remove(); toast(ok?label+" хуулагдлаа":"Хуулж чадсангүй. Текст дээр удаан дараад хуулна уу."); } }
 const role=()=>S.user?.role; const isDir=()=>role()==="Захирал"; const isBoss=()=>role()==="Нягтлан"||isDir(); const isAdmin=()=>role()==="Админ"; const isMaster=()=>role()==="Мастер"; const isMech=()=>role()==="Механик"; const isStore=()=>role()==="Нярав"; const isOper=()=>role()==="Оператор"; const isEng=()=>role()==="Инженер";
 const canUsers=()=>isBoss()||role()==="Хүний нөөц"||isAdmin(); const canEquip=()=>isBoss()||isMech(); const fuelAll=()=>isBoss()||isMech()||isStore()||role()==="Төслийн удирдагч";
-const LIMIT=()=>S.meta?.approveLimit||10000000;
-const canApprove=r=>isDir()||(role()==="Төслийн удирдагч"&&r.by!==S.user.name&&(!S.myProjects||S.myProjects.includes(r.proj))&&(+r.amount||0)<=LIMIT());
-const myProjs=()=>(S.meta?.projects||[]).filter(([c])=>!S.myProjects||S.myProjects.includes(c));
+const LIMIT=()=>S.meta?.approveLimit||10000000; const LLIM=()=>S.meta?.loanLimit||5000000;
+const GEN="ЕРӨНХИЙ", RTS=["Зээл олгох","Урьдчилгаа цалин","Зээлийн үндсэн төлбөр","Зээлийн хүү, шимтгэл"]; const pLabel=c=>c===GEN?"🏢 Ерөнхий":c;
+const canApprove=r=>isDir()||(role()==="Төслийн удирдагч"&&r.proj!==GEN&&r.by!==S.user.name&&(!S.myProjects||S.myProjects.includes(r.proj))&&(+r.amount||0)<=(RTS.includes(r.rtype)?LLIM():LIMIT()));
+const myProjs=()=>(S.meta?.projects||[]).filter(([c])=>c===GEN||!S.myProjects||S.myProjects.includes(c)).sort((a,b)=>(a[0]===GEN)-(b[0]===GEN));
 const stTag=s=>`<span class="st ${stCls[s]||""}">${esc(s)}</span>`;
 function compress(file,max=1280){ return new Promise((res,rej)=>{ const img=new Image(); const url=URL.createObjectURL(file); img.onload=()=>{ const sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Зураг уншиж чадсангүй")); img.src=url; }); }
 const mInput=(id,label,val,ph="0")=>`<label class="f">${label}<input id="${id}" data-money value="${val?fmt(val):""}" inputmode="numeric" placeholder="${ph}"></label>`;
@@ -651,10 +653,11 @@ function card(r){
 
 function renderDash(m){
   if(!S.dash){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; loadDash(); return; }
-  const P=S.dash; if(!S.dp||!P.some(p=>p.code===S.dp)) S.dp=P[0]?.code;
+  const P=S.dash.slice().sort((a,b)=>(b.code===GEN)-(a.code===GEN)); if(!S.dp||!P.some(p=>p.code===S.dp)) S.dp=P[0]?.code;
   const p=P.find(x=>x.code===S.dp);
-  let h=demoBanner()+`<div class="chips">${P.map(x=>`<button data-dp="${esc(x.code)}" aria-pressed="${x.code===S.dp}">${esc(x.code)}${x.active?"":" (хаасан)"}</button>`).join("")}${isDir()?`<button data-newproj>＋ Шинэ төсөл</button>`:""}</div>`;
+  let h=demoBanner()+`<div class="chips">${P.map(x=>`<button data-dp="${esc(x.code)}" aria-pressed="${x.code===S.dp}">${x.code===GEN?"🏢 Компани":esc(x.code)}${x.active?"":" (хаасан)"}</button>`).join("")}${isDir()?`<button data-newproj>＋ Шинэ төсөл</button>`:""}</div>`;
   if(!p){ m.innerHTML=h+`<div class="card empty">Төсөл алга.</div>`; return; }
+  if(p.code===GEN) return renderCompany(m,h);
   const F=fin(p), s=F.st;
   h+=`<div class="card"><div style="font-weight:600;font-size:16px">${esc(p.name)}</div><div class="small muted">${esc(p.code)}</div>
     <div class="actions" style="margin-top:10px"><button data-xp="xlsx">⬇ Excel тайлан</button><button data-xp="pdf">⬇ PDF тайлан</button></div>
@@ -685,6 +688,7 @@ function renderDash(m){
      <div class="card wt"><div class="l">Хүлээгдэж буй</div><div class="c">${s.wait.n}</div><div class="s">${fmt(s.wait.sum)} ₮</div></div>
      <div class="card no"><div class="l">Буцаасан</div><div class="c">${s.no.n}</div><div class="s">${fmt(s.no.sum)} ₮</div></div></div>`;
   h+=taxBreak(s);
+  if(s.nonExp&&s.nonExp.n) h+=`<div class="card fin"><div class="small muted" style="margin-bottom:4px">Зардалд тооцоогүй гүйлгээ (төсөлд хамаарах)</div>${Object.entries(s.nonExp.by).map(([k,v])=>`<div class="ln sub"><span>${esc(k)}</span><span class="n">${fmt(v)}</span></div>`).join("")}</div>`;
   h+=`<h3 class="sec">Гэрээ ба компанид орох дүн</h3><div class="card fin">
      <div class="ln tot"><span>Гэрээний нийт дүн</span><span class="n">${money(p.contract)}</span></div>
      ${COSTS.map(([k,l])=>`<div class="ln sub"><span>− ${l}</span><span class="n">${fmt(p[k])}</span></div>`).join("")}
@@ -768,13 +772,13 @@ function renderSettings(m){
     return `<div class="card urow"><div class="nm"><b>${esc(u.name)}${me?" (та)":""}</b><span class="small muted">${esc(u.role)} · ${u.projects?esc(u.projects.join(", ")):"бүх төсөл"} · ${esc(u.phone||"утасгүй")}${u.email?" · "+esc(u.email):""}</span>${u.status==="Хүлээгдэж буй"?`<span class="st st-wait" style="display:inline-block;margin-top:4px">🆕 Шинэ бүртгэл: баталгаажуулна уу</span>`:u.mustChange?`<span class="st st-wait" style="display:inline-block;margin-top:4px">PIN солиогүй</span>`:""}${u.canReq===false?`<span class="tag" style="display:inline-block;margin-top:4px">Хүсэлт илгээхгүй</span>`:""}${u.sched?`<span class="tag" style="display:inline-block;margin-top:4px">📊 График хөтлөгч</span>`:""}</div>
      ${locked?"":`<button data-edituser="${esc(u.name)}">${u.status==="Хүлээгдэж буй"?"Баталгаажуулах":"Засах"}</button>`}
      ${locked||me?"":`<button class="danger" data-deluser="${esc(u.name)}">${S.delAsk===u.name?"Дахин дарж устга":"Хасах"}</button>`}</div>`; }).join("");
-  if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Үүнээс дээш дүнтэй хүсэлтийг зөвхөн захирал батална. Нягтлан батлахгүй, батлагдсан хүсэлтийг төлнө.</div><button data-setlimit="">Хадгалах</button></div>`;
+  if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Үүнээс дээш дүнтэй хүсэлтийг зөвхөн захирал батална. Нягтлан батлахгүй, батлагдсан хүсэлтийг төлнө.</div><button data-setlimit="">Хадгалах</button></div>`+loanLimitHTML();
   if(isDir()&&S.meta) h+=`<h3 class="sec">Байршил</h3><div class="card"><label class="chk"><input type="checkbox" id="locReq" ${S.meta.locRequired!==false?"checked":""}> Ажилчдын хүсэлт заавал байршилтай байна</label><div class="small muted" style="margin-top:6px">Асаалттай үед утасны байршил тогтоогдохгүй бол ажилчин хүсэлт илгээж чадахгүй. GPS-ийн асуудал гарвал түр унтрааж болно.</div></div>`;
   if(isDir()&&S.dash){ h+=`<h3 class="sec">Төслүүд</h3><div class="small muted" style="margin:0 2px">Хүсэлт, санхүүжилт бүртгэгдээгүй төслийг л устгана. Бусдыг нь "Засах" дотроос хааж болно.</div>`+S.dash.map(p=>`<div class="card urow"><div class="nm"><b>${esc(p.code)}</b><span class="small muted">${esc(p.name)}${p.active?"":" · хаасан"}</span></div><button data-editproj="${esc(p.code)}">Засах</button><button class="danger" data-delproj="${esc(p.code)}">${S.projDel===p.code?"Дахин дарж устга":"Устгах"}</button></div>`).join("")+`<button data-newproj class="big">＋ Шинэ төсөл</button>`; }
   else if(isDir()) loadDash();
   m.innerHTML=h;
 }
-function projChoices(u){ const c=(S.meta?.projects||[]).map(p=>p[0]); for(const x of u.projects||[]) if(!c.includes(x)) c.push(x); return c; }
+function projChoices(u){ const c=(S.meta?.projects||[]).map(p=>p[0]).filter(x=>x!==GEN); for(const x of u.projects||[]) if(!c.includes(x)) c.push(x); return c; }
 function renderUserEdit(m){
   const u=S.uedit;
   const roles=u.name===S.user.name&&!u.isNew?[u.role]:ROLES.filter(r=>(r!=="Захирал"||isDir())&&(!isHR()||!["Нягтлан","Админ","Захирал"].includes(r))&&(!isAdmin()||!["Нягтлан","Захирал"].includes(r)));
@@ -837,6 +841,7 @@ function renderDetail(m,r){
    <div class="amt" style="font-size:24px">${fmt(r.amount)} ₮</div>
    <div class="tags"><span class="tag">${esc(r.proj)}</span><span class="tag">${esc(r.cat)}</span>${r.vat?`<span class="tag">${RTL[rtOf(r)]}</span>`:""}<span class="tag">${esc(r.id)}</span></div>
    <div class="meta">Илгээсэн: ${esc(r.by)} · ${esc(r.date)}</div>
+   ${r.rtype?`<div class="vatnote">💰 <b>${esc(r.rtype)}</b>${(()=>{ let x={}; try{ x=JSON.parse(r.link||"{}"); }catch(e){} return x.emp?` · ажилтан ${esc(x.emp)}, ${x.months} сараар цалингаас суутгана`:x.due?` · буцаан төлөх ${esc(x.due)}${x.rate?`, сарын хүү ${x.rate}%`:""}`:""; })()}. ${r.rtype==="Зээлийн хүү, шимтгэл"?"Зардалд тооцогдоно.":"Зардалд тооцогдохгүй."} Төлсний дараа зээлийн бүртгэлд автоматаар орно.</div>`:""}
    ${r.decided?`<div class="meta">${r.status===ST.NO?"Буцаасан":"Шийдвэрлэсэн"}: ${esc(r.decided)}${r.paid?` · Төлсөн ${esc(r.paid)}`:""}</div>`:""}
    ${r.note?`<div class="banner">${esc(r.note)}</div>`:""}</div>`;
   if(isBoss()&&String(r.id).indexOf("GAZ-")!==0){ const i=locInfo(r);
@@ -846,8 +851,8 @@ function renderDetail(m,r){
   h+=`<div class="card">${isBoss()&&r.status!==ST.NO?`<div class="small muted" style="margin-bottom:4px">Банкны апп руу хуулах</div>`:""}${rows.map(([k,v])=>`<div class="copyrow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${isBoss()?`<button data-copy="${esc(v)}" data-label="${k}">Хуулах</button>`:""}</div>`).join("")}</div>`;
   if(r.photo) h+=`<div class="card photo" id="photoBox"><button id="loadPhoto" class="big">Баримтын зураг харах</button></div>`;
   const canNo=isBoss()||(isPM()&&r.by!==S.user.name);
-  if(r.status===ST.WAIT&&(canNo||canApprove(r))){ const big=(+r.amount||0)>LIMIT();
-    h+=`<div class="card form">${!canApprove(r)?`<div class="banner">${big?`${fmt(LIMIT())} ₮-өөс дээш тул <b>захирал</b> батална.`:r.by===S.user.name?"Өөрийн хүсэлтийг өөрөө батлахгүй.":isBoss()?"Нягтлан батлахгүй, батлагдсаны дараа төлнө. Төслийн удирдагч эсвэл захирал батална.":"Батлах эрхгүй."}</div>`:""}<label class="f">Тайлбар (буцаах бол заавал)<textarea id="note" placeholder="Жишээ: дансны дугаар буруу"></textarea></label>
+  if(r.status===ST.WAIT&&(canNo||canApprove(r))){ const lim=RTS.includes(r.rtype)?LLIM():LIMIT(), big=(+r.amount||0)>lim;
+    h+=`<div class="card form">${!canApprove(r)?`<div class="banner">${r.proj===GEN&&!isBoss()?"Компанийн ерөнхий зардлыг <b>захирал</b> батална.":big?`${fmt(lim)} ₮-өөс дээш тул <b>захирал</b> батална.`:r.by===S.user.name?"Өөрийн хүсэлтийг өөрөө батлахгүй.":isBoss()?"Нягтлан батлахгүй, батлагдсаны дараа төлнө. Төслийн удирдагч эсвэл захирал батална.":"Батлах эрхгүй."}</div>`:""}<label class="f">Тайлбар (буцаах бол заавал)<textarea id="note" placeholder="Жишээ: дансны дугаар буруу"></textarea></label>
       <div class="actions">${canNo?`<button class="danger" data-st="${ST.NO}">Буцаах</button>`:""}${canApprove(r)?`<button class="primary" data-st="${ST.OK}">Зөвшөөрөх</button>`:""}</div></div>`; }
   if(isBoss()){
     if(r.status===ST.OK) h+=`<div class="card form"><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу.</div><button class="primary big" data-st="${ST.PAID}">Төлсөн гэж тэмдэглэх</button></div>`;
@@ -862,12 +867,14 @@ function renderNew(m){
   const lp=store.get("aas_lastproj");
   const d=S.draft||(S.draft={proj:MP.some(p=>p[0]===lp)?lp:MP[0][0],cat:"",what:"",qty:"",payee:"",bank:"",acct:"",amount:"",note:"",rt:"",phone:""});
   m.innerHTML=`${isBoss()?`<div><button data-tab="all">‹ Буцах</button></div>`:""}<form class="card form" id="newForm" novalidate>
-   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Төсөл</div><div class="chips" data-chip="proj">${MP.map(([c,n])=>`<button type="button" data-v="${esc(c)}" aria-pressed="${d.proj===c}" title="${esc(n)}">${esc(c)}</button>`).join("")}</div></div>
-   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Ангилал</div><div class="chips" data-chip="cat">${M.categories.map(([c,n])=>`<button type="button" data-v="${esc(c)}" aria-pressed="${d.cat===c}">${esc(n)}</button>`).join("")}</div></div>
-   <label class="f">Юу авах<input id="f_what" value="${esc(d.what)}" placeholder="Жишээ: Дизель түлш" autocomplete="off"></label>
+   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Төсөл</div><div class="chips" data-chip="proj">${MP.map(([c,n])=>`<button type="button" data-v="${esc(c)}" aria-pressed="${d.proj===c}" title="${esc(n)}">${esc(pLabel(c))}</button>`).join("")}</div>
+   <div class="small muted" style="margin-top:4px">Аль ч төсөлд хамаарахгүй (оффис, компанийн) зардлыг «🏢 Ерөнхий»-гөөр илгээнэ.</div></div>
+   ${newFormExtra(d)}
+   <div ${d.rtype?"hidden":""}><div class="small muted" style="font-weight:500;margin-bottom:6px">Ангилал</div><div class="chips" data-chip="cat">${M.categories.map(([c,n])=>`<button type="button" data-v="${esc(c)}" aria-pressed="${d.cat===c}">${esc(n)}</button>`).join("")}</div></div>
+   <label class="f">${d.rtype?"Тайлбар (заавал биш)":"Юу авах"}<input id="f_what" value="${esc(d.what)}" placeholder="${d.rtype?"Автоматаар бөглөнө":"Жишээ: Дизель түлш"}" autocomplete="off"></label>
    <div class="row2"><label class="f">Тоо хэмжээ<input id="f_qty" value="${esc(d.qty)}" placeholder="400 л"></label>
    <label class="f">Дүн, ₮<input id="f_amount" data-money value="${esc(d.amount)}" inputmode="numeric" placeholder="1,240,000"></label></div>
-   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Баримтын төрөл</div><div class="chips" data-chip="rt">${Object.entries(RTL).map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${d.rt===k}">${l}</button>`).join("")}</div>
+   <div ${d.rtype?"hidden":""}><div class="small muted" style="font-weight:500;margin-bottom:6px">Баримтын төрөл</div><div class="chips" data-chip="rt">${Object.entries(RTL).map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${d.rt===k}">${l}</button>`).join("")}</div>
    <div class="vatnote"><b>Хүндэтгэлтэй сануулга:</b> Худалдан авалтаа аль болох <b>НӨАТ-тай</b> хийгээрэй. НӨАТ-тай баримт компанийн татварыг бууруулж, бүх хамт олонд ашигтай. Худалдагчаас НӨАТ-тай баримт гаргуулахыг заавал асуугаарай. Баярлалаа!</div>
    <div class="vatnote warn" id="vatNo" ${d.rt&&d.rt!=="vat"?"":"hidden"}>${rtWarn(d.rt)}</div></div>
    <label class="f">Хүлээн авагч (данс эзэмшигч)<input id="f_payee" value="${esc(d.payee)}" placeholder="Байгууллага эсвэл хүний нэр"></label>
@@ -1500,7 +1507,7 @@ function attCounts(att,name,ym){ const c={}; PST.forEach(k=>c[k]=0); let dr=0; a
 const countTags=c=>`<div class="tags">${PST.filter(k=>c[k]).map(k=>`<span class="tag" style="background:${PSC[k][1]};color:${PSC[k][2]}">${PSC[k][0]} ${k} ${c[k]}</span>`).join("")||`<span class="tag">Бүртгэлгүй</span>`}</div>`;
 function drunkInfo(att,name,td){ const a=att.filter(x=>x[1]===name&&x[3]); return {d7:a.filter(x=>x[0]>=dAdd(td,-6)).length,d30:a.filter(x=>x[0]>=dAdd(td,-29)).length}; }
 function pplFiltered(){ const P=S.ppl.people.filter(u=>u.role!=="Захирал"); const f=S.pproj||""; return (f?P.filter(u=>!u.projects||u.projects.includes(f)):P).sort((a,b)=>(a.position||"яя").localeCompare(b.position||"яя")||a.name.localeCompare(b.name)); }
-function projFilterChips(){ const P=(S.meta?.projects||[]).map(p=>p[0]); return `<div class="chips"><button data-pproj="" aria-pressed="${!S.pproj}">Бүгд</button>${P.map(c=>`<button data-pproj="${esc(c)}" aria-pressed="${S.pproj===c}">${esc(c)}</button>`).join("")}</div>`; }
+function projFilterChips(){ const P=(S.meta?.projects||[]).map(p=>p[0]).filter(c=>c!==GEN); return `<div class="chips"><button data-pproj="" aria-pressed="${!S.pproj}">Бүгд</button>${P.map(c=>`<button data-pproj="${esc(c)}" aria-pressed="${S.pproj===c}">${esc(c)}</button>`).join("")}</div>`; }
 function renderPeople(m){
   if(!S.ppl){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; loadPeople(); return; }
   if(canUsers()&&!S.users&&!S.usersBusy){ S.usersBusy=true; api("userList").then(r=>{ S.users=r.users; S.usersBusy=false; if(S.tab==="people") render(); }).catch(()=>{ S.usersBusy=false; }); }
@@ -1578,6 +1585,12 @@ function pPayView(){
     <tr class="tot"><td>Нийт</td><td class="num">${n1(T.days||0)}</td><td class="num">${fmt(T.gross||0)}</td><td class="num">${fmt(T.ee||0)}</td><td class="num">${fmt(T.pit||0)}</td><td class="num">${fmt(T.net||0)}</td></tr></table>
     <div class="small muted" style="margin-top:8px">Ажил олгогчийн НДШ (${cfg.er}%): <b>${fmt(T.er||0)} ₮</b> · Компанийн нийт зардал: <b>${fmt((T.gross||0)+(T.er||0))} ₮</b></div></div>
     <div class="actions"><button data-payxl="">⬇ Excel</button><button data-cfged="">⚙ НДШ, татварын тохиргоо</button></div>`;
+  const AV=(X.adv||[]).filter(l=>(l.bal>0||l.txs.some(t=>t.ym===ym))&&L.some(u=>u.name===l.party));
+  if(AV.length){ const net=Object.fromEntries(rows.map(({u,p})=>[u.name,p.net]));
+    h+=`<h3 class="sec">Урьдчилгааны суутгал · ${ym}</h3><div class="card" style="overflow-x:auto"><table class="tx"><tr><th>Ажилтан</th><th class="num">Үлдэгдэл</th><th class="num">Суутгах</th><th class="num">Суутгалын дараа олгох</th></tr>
+      ${AV.map(l=>{ const x=advDeduct(l,ym); return `<tr><td>${esc(l.party)}<div class="small muted">${esc(l.date)} · ${fmt(l.amount)} ₮ · ${l.months} сар${x.posted?" · ✅ бүртгэсэн":""}</div></td><td class="num">${fmt(l.bal)}</td><td class="num"><input data-advin="${esc(l.id)}" data-money inputmode="numeric" value="${fmt(x.amt)}" style="width:110px;text-align:right"></td><td class="num"><b>${fmt((net[l.party]||0)-x.amt)}</b></td></tr>`; }).join("")}</table>
+      <div class="small muted" style="margin-top:8px">Санал болгосон дүн = урьдчилгаа ÷ суутгах сар. Цалин олгохдоо «Суутгал бүртгэх» дарахад урьдчилгааны үлдэгдэл буурна. Дахин дарвал тухайн сарынхыг шинэчилнэ.</div>
+      <button class="primary" data-advpost="" style="margin-top:8px">Суутгал бүртгэх</button></div>`; }
   if(S.cfgEd) h+=`<div class="card form"><div style="font-weight:600">НДШ, ХХОАТ-ын тохиргоо</div>
     <div class="row2"><label class="f">Ажилтны НДШ, %<input id="cf_ee" inputmode="decimal" value="${cfg.ee}"></label><label class="f">Ажил олгогчийн НДШ, %<input id="cf_er" inputmode="decimal" value="${cfg.er}"></label></div>
     <div class="row2"><label class="f">ХХОАТ, %<input id="cf_pit" inputmode="decimal" value="${cfg.pit}"></label><label class="f">НДШ-ийн дээд хязгаар, ₮ (0 = хязгааргүй)<input id="cf_cap" inputmode="numeric" value="${cfg.cap||0}"></label></div>
@@ -1611,6 +1624,7 @@ function renderMy(m){
   const NEW=Y.tasks.filter(x=>x.status===TST.NEW), ACT=Y.tasks.filter(x=>x.status===TST.ACK), OLD=Y.tasks.filter(x=>x.status===TST.DONE||x.status===TST.NOT).slice(0,15);
   let h=`<div class="card"><div class="top" style="display:flex;justify-content:space-between;gap:8px"><div><div style="font-weight:600;font-size:17px">${esc(S.user.name)}</div><div class="small muted">${esc(Y.position||S.user.role)}</div></div>${rateTag(r)}</div>
     ${r&&r.n?`<div class="small muted" style="margin-top:6px">Сүүлийн 60 хоногт ${r.n} даалгавраас хугацаандаа ${r.onTime}, хоцорсон ${r.late}, биелээгүй ${r.miss}. Даалгавраа хугацаанд нь биелүүлж, тайлагнах тусам үнэлгээ өснө.</div>`:`<div class="small muted" style="margin-top:6px">Даалгавраа хугацаанд нь биелүүлж тайлагнавал үнэлгээ тань гарна.</div>`}</div>`;
+  h+=myLoansHTML(Y);
   if(Y.drunk30) h+=`<div class="vatnote warn"><b>Анхааруулга:</b> Сүүлийн 30 хоногт ажилдаа согтуу эсвэл хамшинжтэй ирсэн гэж <b>${Y.drunk30}</b> удаа бүртгэгдсэн байна. Энэ нь таны болон хамт олны амь насанд аюултай, ажлын байрны дүрэм зөрчсөн үйлдэл юм.${Y.drunk7>=2||Y.drunk30>=3?" Давтагдаж байгаа нь архи таны амьдралд асуудал үүсгэж эхэлснийг илтгэж болзошгүй. Ганцаараа даван туулах шаардлагагүй: эмч, өрхийн эрүүл мэндийн төв эсвэл Сэтгэцийн эрүүл мэндийн үндэсний төвд хандаж зөвлөгөө авах боломжтой. Удирдлага тань ч туслахад бэлэн байна.":" Дахин давтахгүй байхыг хүсье."}</div>`;
   h+=`<h3 class="sec">📌 Шинэ даалгавар · ${NEW.length}</h3>`+(NEW.length?NEW.map(x=>`<div class="card" style="border-left:4px solid var(--brand-o)"><div class="small muted">${esc(x.from)} · ${esc(x.date)}${x.proj?" · "+esc(x.proj):""} · хугацаа <b>${esc(x.due)}</b></div><div style="font-weight:600;margin:6px 0;white-space:pre-wrap">${esc(x.text)}</div><button class="primary big" data-tack="${esc(x.id)}">👌 Ойлголоо, хүлээн авлаа</button></div>`).join(""):`<div class="card empty" style="padding:16px">Шинэ даалгавар алга.</div>`);
   if(ACT.length) h+=`<h3 class="sec">Хийж буй · ${ACT.length}</h3>`+ACT.map(x=>`<div class="card form" style="gap:8px"><div class="small muted">${esc(x.from)} · хугацаа <b class="${x.due<td?"neg":""}">${esc(x.due)}${x.due<td?" (хэтэрсэн)":x.due===td?" (өнөөдөр)":""}</b></div><div style="font-weight:600;white-space:pre-wrap">${esc(x.text)}</div>
@@ -2150,6 +2164,147 @@ document.addEventListener("submit",async ev=>{
 },true);
 return {renderSched,schedReset};
 })();
+const {renderCompany,advDeduct,myLoansHTML,newFormExtra,loanLimitHTML}=(()=>{
+const LZ={view:null,det:null,form:null,tx:null,del:null,busy:false};
+const TL={"Олгосон":"Бусдад олгосон зээл","Урьдчилгаа":"Ажилтны урьдчилгаа","Авсан":"Банкны / авсан зээл"};
+const TXO={"Олгосон":["Эргэн төлөлт"],"Урьдчилгаа":["Цалингийн суутгал","Эргэн төлөлт"],"Авсан":["Үндсэн төлбөр","Хүү, шимтгэл"]};
+const ymAdd=(ym,k)=>{ const d=new Date(Date.UTC(+ym.slice(0,4),+ym.slice(5,7)-1+k,1)); return d.toISOString().slice(0,7); };
+async function loadLoans(){ if(LZ.busy) return; LZ.busy=true; try{ S.loans=await api("loans"); if(S.tab==="dash") render(); }catch(e){ toast("Зээл ачаалж чадсангүй: "+e.message); } finally{ LZ.busy=false; } }
+function advDeduct(l,ym){
+  const start=ymAdd(l.date.slice(0,7),1); if(ym<start) return {amt:0,posted:false};
+  const p=l.txs.find(t=>t.type==="Цалингийн суутгал"&&t.ym===ym); if(p) return {amt:p.amount,posted:true};
+  return {amt:Math.min(l.bal,Math.ceil(l.amount/(l.months||1))),posted:false};
+}
+function myLoansHTML(Y){
+  const L=(Y.loans||[]).filter(l=>l.bal>0); if(!L.length) return "";
+  return `<h3 class="sec">💳 Миний урьдчилгаа, зээл</h3>`+L.map(l=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${l.type==="Урьдчилгаа"?"Урьдчилгаа цалин":"Зээл"} · ${esc(l.date)}</b><span class="amt">${fmt(l.amount)} ₮</span></div>
+    <div class="small muted">Үлдэгдэл <b class="neg">${fmt(l.bal)} ₮</b>${l.type==="Урьдчилгаа"?` · ${l.months} сараар цалингаас суутгана (сард ~${fmt(Math.ceil(l.amount/(l.months||1)))} ₮)`:""}</div></div>`).join("");
+}
+function loanLimitHTML(){ return `<h3 class="sec">Зээл, урьдчилгааны батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч зээл, урьдчилгаа батлах дээд дүн, ₮<input id="loanLimitIn" inputmode="numeric" value="${fmt(S.meta?.loanLimit||5000000)}"></label><div class="small muted">Үүнээс дээшхийг болон компанийн ерөнхий зардлыг зөвхөн захирал батална.</div><button data-setloanlimit="">Хадгалах</button></div>`; }
+function newFormExtra(d){
+  const boss=isBoss()||isPM(); if(!boss) return "";
+  const T=["",...RTS];
+  let h=`<div><div class="small muted" style="font-weight:500;margin-bottom:6px">Гүйлгээний төрөл</div><div class="chips" data-rtype>${T.map(k=>`<button type="button" data-rtv="${esc(k)}" aria-pressed="${(d.rtype||"")===k}">${k||"Зардал"}</button>`).join("")}</div>
+    ${d.rtype&&d.rtype!=="Зээлийн хүү, шимтгэл"?`<div class="small muted" style="margin-top:4px">Энэ гүйлгээ <b>зардалд орохгүй</b>: ${d.rtype==="Зээлийн үндсэн төлбөр"?"компанийн өр буурна":"авлага болж, буцаж төлөгдөнө"}. Төсөлд ${fmt(LLIM())} ₮ хүртэлхийг төслийн удирдагч, түүнээс дээшхийг захирал батална.</div>`:""}</div>`;
+  if(d.rtype==="Урьдчилгаа цалин") h+=`<div class="row2"><label class="f">Ажилтан<select id="f_emp"><option value="">Сонгох</option>${(S.emps||[]).map(n=>`<option${d.emp===n?" selected":""}>${esc(n)}</option>`).join("")}</select></label>
+    <label class="f">Хэдэн сараар суутгах<select id="f_months">${[1,2,3,4,5,6,9,12].map(k=>`<option value="${k}"${+(d.months||1)===k?" selected":""}>${k} сар</option>`).join("")}</select></label></div>`;
+  if(d.rtype==="Зээл олгох") h+=`<div class="row2"><label class="f">Буцаан төлөх огноо<input id="f_due" type="date" value="${esc(d.due||"")}"></label><label class="f">Сарын хүү, % (заавал биш)<input id="f_rate" inputmode="decimal" value="${esc(d.rate||"")}" placeholder="0"></label></div>`;
+  if(d.rtype==="Зээлийн үндсэн төлбөр"||d.rtype==="Зээлийн хүү, шимтгэл") h+=`<label class="f">Аль зээл<select id="f_loan"><option value="">Сонгох</option>${(S.loansOpen||[]).map(l=>`<option value="${esc(l.id)}"${d.loan===l.id?" selected":""}>${esc(l.party)} · ${esc(l.proj)} · үлдэгдэл ${fmt(l.bal)} ₮</option>`).join("")}</select></label>${(S.loansOpen||[]).length?"":`<div class="small muted">Бүртгэлтэй зээл алга. Эхлээд Төсөл → 🏢 Компани хэсэгт банкны зээлээ бүртгэнэ үү.</div>`}`;
+  return h;
+}
+function sumYears(P){ const Y={}; for(const p of P) for(const [y,v] of Object.entries(p.stats?.years||{})){ Y[y]=Y[y]||{exp:0,inc:0}; Y[y].exp+=v.exp; Y[y].inc+=v.inc; } return Y; }
+function renderCompany(m,head){
+  if(LZ.form) return loanForm(m); if(LZ.tx) return txForm(m); if(LZ.det) return loanDet(m);
+  const P=S.dash.filter(p=>p.code!==GEN), G=S.dash.find(p=>p.code===GEN), FG=fin(G);
+  const Fs=P.map(p=>({p,F:fin(p)})), sum=k=>Fs.reduce((a,x)=>a+k(x),0);
+  const contract=sum(x=>+x.p.contract||0), income=sum(x=>x.F.income), rec=sum(x=>x.p.incomeSum||0), pexp=sum(x=>x.F.expense), wait=sum(x=>x.F.st.wait.sum)+FG.st.wait.sum;
+  const total=income-pexp-FG.expense;
+  const YS=sumYears(S.dash), yr=S.today?.slice(0,4)||today().slice(0,4), years=[...new Set([yr,...Object.keys(YS)])].sort().reverse(); const cy=S.cy&&years.includes(S.cy)?S.cy:yr; const Y=YS[cy]||{exp:0,inc:0}, yp=Y.inc-Y.exp;
+  let h=head+`<div class="card"><div style="font-weight:600;font-size:16px">🏢 Аасгалдай ХХК · компанийн нэгдсэн дүн</div><div class="small muted">Бүх төсөл ба төсөлд хамаарахгүй ерөнхий зардал</div>
+    <div class="chips" style="margin-top:10px">${years.map(y=>`<button data-cy="${y}" aria-pressed="${y===cy}">${y} он</button>`).join("")}</div>
+    <div class="ybig"><div class="small muted">${cy} оны ашиг (орсон санхүүжилт − зардал)</div><div class="v ${yp>=0?"pos":"neg"}">${money(yp)}</div></div>
+    <div class="fin"><div class="ln"><span>${cy} онд орсон санхүүжилт</span><span class="n pos">${fmt(Y.inc)}</span></div><div class="ln"><span>${cy} оны зардал (баталсан + төлсөн)</span><span class="n">${fmt(Y.exp)}</span></div></div>
+    <div class="small muted" style="margin-top:6px">Зээл олгосон, урьдчилгаа, зээлийн үндсэн төлбөр зардалд орохгүй. Зээлийн хүү, шимтгэл зардалд орно.</div></div>`;
+  h+=`<h3 class="sec">Бүх төслийн нийлбэр</h3><div class="card fin">
+    <div class="ln tot"><span>Гэрээний нийт дүн</span><span class="n">${money(contract)}</span></div>
+    <div class="ln tot"><span>Компанид орох нийт дүн</span><span class="n">${money(income)}</span></div>
+    <div class="ln"><span>Гүйцэтгэлийн орсон санхүүжилт</span><span class="n pos">${money(rec)}</span></div>
+    <div class="ln sub"><span>Захиалагчаас орох үлдэгдэл</span><span class="n">${fmt(income-rec)}</span></div>
+    <div class="ln"><span>Төслүүдийн зардал</span><span class="n">${money(pexp)}</span></div>
+    <div class="ln"><span>Компанийн ерөнхий зардал</span><span class="n">${money(FG.expense)}</span></div>
+    <div class="ln big"><span>Нийт ${total>=0?"ашиг":"алдагдал"} (гэрээгээр)</span><span class="n ${total>=0?"pos":"neg"}">${money(total)}</span></div>
+    ${wait?`<div class="ln sub"><span>Батлагдаагүй хүсэлт</span><span class="n">${fmt(wait)}</span></div>`:""}</div>`;
+  h+=`<div class="card" style="overflow-x:auto;padding:0"><table class="gtbl"><tr><th>Төсөл</th><th>Орох дүн</th><th>Орсон</th><th>Зардал</th><th>Ашиг</th></tr>${Fs.map(({p,F})=>`<tr><td><button class="lnk" data-dp="${esc(p.code)}">${esc(p.code)}</button></td><td>${fmt(F.income)}</td><td>${fmt(p.incomeSum||0)}</td><td>${fmt(F.expense)}</td><td class="${F.profit>=0?"pos":"neg"}">${fmt(F.profit)}</td></tr>`).join("")}<tr><td>Ерөнхий</td><td></td><td></td><td>${fmt(FG.expense)}</td><td class="neg">−${fmt(FG.expense)}</td></tr></table></div>`;
+  const s=FG.st, cats=Object.entries(s.cats).sort((a,b)=>b[1]-a[1]);
+  h+=`<h3 class="sec">Компанийн ерөнхий зардал</h3><div class="stat3"><div class="card ok"><div class="l">Баталгаажсан</div><div class="c">${s.ok.n+s.paid.n}</div><div class="s">${fmt(s.ok.sum+s.paid.sum)} ₮</div></div><div class="card wt"><div class="l">Хүлээгдэж буй</div><div class="c">${s.wait.n}</div><div class="s">${fmt(s.wait.sum)} ₮</div></div><div class="card no"><div class="l">Буцаасан</div><div class="c">${s.no.n}</div><div class="s">${fmt(s.no.sum)} ₮</div></div></div>
+    ${cats.length?`<div class="card hb">${cats.map(([c,a])=>`<div class="r"><span>${esc(c)}</span><span class="t"><i style="width:${Math.max(2,a/cats[0][1]*100)}%"></i></span><span class="n">${fmt(a)}</span></div>`).join("")}</div>`:""}
+    <div class="small muted">Ажилчид «Шинэ хүсэлт» дээр төсөл сонгохдоо «🏢 Ерөнхий»-г сонгож илгээнэ. Зөвхөн захирал батална.</div>`;
+  h+=loansBlock();
+  m.innerHTML=h;
+}
+function loansBlock(){
+  if(!S.loans){ loadLoans(); return `<h3 class="sec">💰 Зээл, урьдчилгаа</h3><div class="card empty">Ачаалж байна…</div>`; }
+  const L=S.loans.loans, td=S.loans.today, b=t=>L.filter(l=>l.type===t).reduce((a,l)=>a+l.bal,0), intr=L.filter(l=>l.type==="Авсан").reduce((a,l)=>a+l.interest,0);
+  let h=`<h3 class="sec">💰 Зээл, урьдчилгаа</h3><div class="card fin">
+    <div class="ln"><span>Бусдад олгосон зээлийн үлдэгдэл (авлага)</span><span class="n">${fmt(b("Олгосон"))}</span></div>
+    <div class="ln"><span>Ажилчдын урьдчилгааны үлдэгдэл</span><span class="n">${fmt(b("Урьдчилгаа"))}</span></div>
+    <div class="ln tot"><span>Банкны зээлийн үлдэгдэл (өр)</span><span class="n neg">${fmt(b("Авсан"))}</span></div>
+    <div class="ln sub"><span>Нийт төлсөн хүү, шимтгэл</span><span class="n">${fmt(intr)}</span></div></div>
+    <div class="actions"><button data-lnew="Авсан">＋ Банкны зээл бүртгэх</button><button data-lnew="Олгосон">＋ Олгосон зээл бүртгэх</button></div>
+    <div class="small muted" style="margin:4px 2px 8px">Шинээр зээл, урьдчилгаа олгох, банкны зээл төлөхдөө «Шинэ хүсэлт» → «Гүйлгээний төрөл»-өөс сонгоно. Төлсний дараа энд автоматаар орно. Энэ товчоор зөвхөн өмнө нь апп-аас гадуур авсан/олгосон зээлийг бүртгэнэ.</div>`;
+  const open=L.filter(l=>l.bal>0).sort((a,c)=>a.type.localeCompare(c.type)), closed=L.filter(l=>l.bal<=0);
+  const row=l=>{ const late=l.due&&l.bal>0&&l.due<td, soon=l.due&&l.bal>0&&!late&&l.due<=ymAdd(td.slice(0,7),1)+td.slice(7);
+    return `<button class="card req" data-ldet="${esc(l.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(l.party)}</b><span class="amt">${fmt(l.bal)} ₮</span></div>
+      <div class="tags"><span class="tag">${TL[l.type]}</span><span class="tag">${l.proj===GEN?"Ерөнхий":esc(l.proj)}</span>${late?`<span class="st st-bad">Хугацаа хэтэрсэн</span>`:soon?`<span class="st st-warn">Хугацаа ойртсон</span>`:""}${l.bal<=0?`<span class="st st-done">Хаагдсан</span>`:""}</div>
+      <div class="meta">${esc(l.date)} · ${fmt(l.amount)} ₮${l.due?` · дуусах ${esc(l.due)}`:""}${l.rate?` · сарын ${l.rate}%`:""}${l.type==="Урьдчилгаа"?` · ${l.months} сараар`:""}</div></button>`; };
+  h+=open.length?open.map(row).join(""):`<div class="card empty">Нээлттэй зээл алга.</div>`;
+  if(closed.length) h+=`<details><summary class="small">Хаагдсан зээл · ${closed.length}</summary>${closed.map(row).join("")}</details>`;
+  return h;
+}
+function loanDet(m){
+  const l=S.loans?.loans.find(x=>x.id===LZ.det); if(!l){ LZ.det=null; return render(); }
+  m.innerHTML=`<button data-lback>‹ Буцах</button><div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:17px">${esc(l.party)}</b><span class="tag">${TL[l.type]}</span></div>
+    <div class="meta">${l.proj===GEN?"Компанийн ерөнхий":esc(l.proj)} · ${esc(l.date)}${l.due?` · дуусах ${esc(l.due)}`:""}${l.rate?` · сарын хүү ${l.rate}%`:""}${l.type==="Урьдчилгаа"?` · ${l.months} сараар суутгана`:""}</div>
+    <div class="gsum"><div><div class="small muted">Анхны дүн</div><b>${fmt(l.amount)}</b></div><div><div class="small muted">${l.type==="Авсан"?"Төлсөн":"Буцаасан"}</div><b>${fmt(l.paid)}</b></div><div><div class="small muted">Үлдэгдэл</div><b class="${l.bal>0?"neg":"pos"}">${fmt(l.bal)}</b></div></div>
+    ${l.type==="Авсан"?`<div class="small muted" style="margin-top:6px">Төлсөн хүү, шимтгэл: <b>${fmt(l.interest)} ₮</b> (${l.proj===GEN?"компанийн ерөнхий":esc(l.proj)+" төслийн"} зардалд орсон)</div>`:""}
+    ${l.note?`<div class="small muted" style="margin-top:4px">${esc(l.note)}</div>`:""}${l.req?`<div class="small muted">Хүсэлт: ${esc(l.req)} · бүртгэсэн ${esc(l.by)}</div>`:""}
+    <div class="actions" style="margin-top:10px"><button class="primary" data-ltx="${esc(l.id)}">＋ ${l.type==="Авсан"?"Төлбөр бүртгэх":"Эргэн төлөлт бүртгэх"}</button>${isDir()&&!l.txs.length?`<button class="danger" data-ldel="${esc(l.id)}">${LZ.del===l.id?"Дахин дарж устга":"Устгах"}</button>`:""}</div>
+    ${l.type==="Авсан"?`<div class="small muted" style="margin-top:6px">Банкинд төлөх мөнгийг «Шинэ хүсэлт» → «Зээлийн үндсэн төлбөр» / «Зээлийн хүү, шимтгэл»-ээр гаргавал төлсний дараа энд автоматаар орно.</div>`:""}</div>
+    <h3 class="sec">Гүйлгээ</h3>${l.txs.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Төрөл</th><th>Дүн</th></tr>${l.txs.slice().reverse().map(t=>`<tr><td>${esc(t.date)}<div class="small muted">${esc(t.note||"")}${t.by?" · "+esc(t.by):""}</div></td><td style="text-align:left">${esc(t.type)}</td><td>${fmt(t.amount)}${isDir()?`<div><button class="lnk danger" data-ltxdel="${esc(t.id)}">${LZ.del===t.id?"дахин дар":"устгах"}</button></div>`:""}</td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйлгээ алга.</div>`}`;
+}
+function loanForm(m){
+  const t=LZ.form.type, P=(S.meta?.projects||[]);
+  m.innerHTML=`<button data-lback>‹ Буцах</button><form class="card form" id="loanForm" style="margin-top:10px">
+    <div style="font-weight:600;font-size:16px">${t==="Авсан"?"Банкны / авсан зээл бүртгэх":"Олгосон зээл бүртгэх"}</div>
+    <label class="f">${t==="Авсан"?"Банк, зээлдүүлэгч":"Зээлдэгч (хэнд)"}<input id="l_party" placeholder="${t==="Авсан"?"Хаан банк":"Байгууллага, хүний нэр"}"></label>
+    <div class="row2"><label class="f">Дүн, ₮<input id="l_amount" data-money inputmode="numeric"></label><label class="f">Огноо<input id="l_date" type="date" value="${esc(today())}"></label></div>
+    <div class="row2"><label class="f">Сарын хүү, %<input id="l_rate" inputmode="decimal" placeholder="1.8"></label><label class="f">Дуусах огноо<input id="l_due" type="date"></label></div>
+    <label class="f">Аль төсөлд зориулсан<select id="l_proj">${P.map(([c,n])=>`<option value="${esc(c)}"${c===GEN?" selected":""}>${c===GEN?"Компанийн ерөнхий":esc(c)+" · "+esc(n)}</option>`).join("")}</select></label>
+    <div class="small muted">Тодорхой төсөлд зориулж авсан зээлийн хүү тухайн төслийн зардалд, бусад нь компанийн ерөнхий зардалд орно.</div>
+    <label class="f">Тэмдэглэл<input id="l_note" placeholder="Гэрээний дугаар гэх мэт"></label>
+    <div id="lErr" class="banner" hidden></div><button class="primary big" id="lSave">Хадгалах</button></form>`;
+}
+function txForm(m){
+  const l=S.loans.loans.find(x=>x.id===LZ.tx); const O=TXO[l.type];
+  m.innerHTML=`<button data-lback>‹ Буцах</button><form class="card form" id="txForm" style="margin-top:10px">
+    <div style="font-weight:600;font-size:16px">${esc(l.party)} · үлдэгдэл ${fmt(l.bal)} ₮</div>
+    <label class="f">Төрөл<select id="t_type">${O.map(o=>`<option>${o}</option>`).join("")}</select></label>
+    <div class="row2"><label class="f">Дүн, ₮<input id="t_amount" data-money inputmode="numeric"></label><label class="f">Огноо<input id="t_date" type="date" value="${esc(today())}"></label></div>
+    <label class="f">Тэмдэглэл<input id="t_note" placeholder="Заавал биш"></label>
+    <div id="tErr" class="banner" hidden></div><button class="primary big" id="tSave">Бүртгэх</button></form>`;
+}
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("[data-rtv],[data-cy],[data-lnew],[data-ldet],[data-lback],[data-ltx],[data-ldel],[data-ltxdel],[data-setloanlimit],[data-advpost]"); if(!t) return;
+  const d=t.dataset; ev.stopPropagation(); ev.preventDefault();
+  if(d.rtv!=null){ S.draft.rtype=d.rtv; render(); return; }
+  if(d.cy){ S.cy=d.cy; render(); return; }
+  if(d.lnew){ LZ.form={type:d.lnew}; render(); scrollTo(0,0); return; }
+  if(d.ldet){ LZ.det=d.ldet; LZ.del=null; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-lback")){ if(LZ.form||LZ.tx){ LZ.form=null; LZ.tx=null; } else LZ.det=null; render(); return; }
+  if(d.ltx){ LZ.tx=d.ltx; render(); scrollTo(0,0); return; }
+  if(d.ldel||d.ltxdel){ const id=d.ldel||d.ltxdel; if(LZ.del!==id){ LZ.del=id; render(); return; } t.disabled=true;
+    try{ S.loans=await api("loanDel",{id,tx:!!d.ltxdel}); LZ.del=null; if(d.ldel) LZ.det=null; S.dash=null; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(t.hasAttribute("data-setloanlimit")){ const v=+($("#loanLimitIn").value.replace(/\D/g,""))||0; if(v<100000){ toast("Дүнгээ зөв оруулна уу"); return; } t.disabled=true; try{ S.meta=await api("setLoanLimit",{limit:v}); toast("Хадгалагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(t.hasAttribute("data-advpost")){ const ym=S.pm, items=(S.ppl.adv||[]).filter(l=>l.bal>0||l.txs.some(x=>x.ym===ym)).map(l=>{ const i=document.querySelector(`[data-advin="${l.id}"]`); return i?{loan:l.id,amount:+i.value.replace(/\D/g,"")||0}:null; }).filter(Boolean);
+    if(!items.length){ toast("Суутгах урьдчилгаа алга"); return; } t.disabled=true;
+    try{ const r=await api("payDeduct",{ym,items}); S.ppl.adv=r.loans.filter(l=>l.type==="Урьдчилгаа"); S.loans=r; toast(ym+" сарын суутгал бүртгэгдлээ"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+},true);
+document.addEventListener("submit",async ev=>{
+  const f=ev.target; if(f.id!=="loanForm"&&f.id!=="txForm") return; ev.preventDefault(); ev.stopPropagation();
+  if(f.id==="loanForm"){
+    const l={type:LZ.form.type,party:$("#l_party").value.trim(),amount:num($("#l_amount").value),date:$("#l_date").value,rate:$("#l_rate").value.replace(",","."),due:$("#l_due").value,proj:$("#l_proj").value,note:$("#l_note").value};
+    if(!l.party||!(l.amount>0)||!l.date) return showErr("#lErr","Нэр, дүн, огноогоо оруулна уу.");
+    const b=$("#lSave"); b.disabled=true;
+    try{ S.loans=await api("loanSave",{l}); LZ.form=null; toast("Зээл бүртгэгдлээ"); render(); scrollTo(0,0); }catch(e){ showErr("#lErr",e.message); b.disabled=false; }
+  } else {
+    const tx={loan:LZ.tx,type:$("#t_type").value,amount:num($("#t_amount").value),date:$("#t_date").value,note:$("#t_note").value};
+    if(!(tx.amount>0)||!tx.date) return showErr("#tErr","Дүн, огноогоо оруулна уу.");
+    const b=$("#tSave"); b.disabled=true;
+    try{ S.loans=await api("loanTx",{tx}); LZ.det=LZ.tx; LZ.tx=null; S.dash=null; toast("Бүртгэгдлээ"); render(); }catch(e){ showErr("#tErr",e.message); b.disabled=false; }
+  }
+},true);
+return {renderCompany,advDeduct,myLoansHTML,newFormExtra,loanLimitHTML};
+})();
 const cacheKey=()=>"aas_c_"+(S.user?.name||"");
 function saveCache(){ try{ localStorage.setItem(cacheKey(),JSON.stringify({t:Date.now(),reqs:S.reqs,meta:S.meta,dash:S.dash,fuel:S.fuel,myProjects:S.myProjects})); }catch(e){} }
 function readCache(){ try{ const c=JSON.parse(localStorage.getItem(cacheKey())); if(c&&Date.now()-c.t<7*864e5){ S.reqs=c.reqs||[]; S.meta=c.meta||null; S.dash=c.dash||null; S.fuel=c.fuel||null; S.myProjects=c.myProjects||null; return true; } }catch(e){} return false; }
@@ -2158,7 +2313,7 @@ async function load(quiet){
     const r=await api("boot");
     S.meta=r.meta; S.reqs=r.reqs.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     if(r.projects) S.dash=r.projects;
-    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false;
+    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false; S.loansOpen=r.loansOpen||[]; S.emps=r.emps||[];
     if(r.meal) setTimeout(()=>mealPopup(r.meal),400);
     if(r.hr){ const before=S.hrBadge?.newTasks; S.hrBadge=r.hr; if(r.hr.newTasks&&r.hr.newTasks!==before){ toast(`Танд ${r.hr.newTasks} шинэ даалгавар ирлээ`); try{ if(window.Notification&&Notification.permission==="granted") new Notification("Аасгалдай",{body:`${r.hr.newTasks} шинэ даалгавар`}); }catch(e){} } }
     if(r.hab){ S.habBadge=r.hab; if(r.hab.unread&&!S.habPopped&&!isHab()) loadHab().then(habPopup); }
@@ -2178,7 +2333,7 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("button"); if(!t) return;
   const D=t.dataset;
   if(t.id==="logout") return logout();
-  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); return load(); }
+  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); if(S.tab==="dash") S.loans=null; return load(); }
   if(D.tab){ S.tab=D.tab; S.detail=S.edit=S.uedit=S.incEdit=null; S.eqEdit=S.ff=S.feq=null; S.habEdit=null; S.pdet=null; S.uedit=null; S.delAsk=null; render(); scrollTo(0,0); return; }
   if(D.go){ S.tab=D.go; render(); scrollTo(0,0); return; }
   if(D.open){ S.detail=D.open; render(); scrollTo(0,0); return; }
@@ -2249,7 +2404,8 @@ document.addEventListener("submit",async e=>{
   const f=e.target;
   if(f.id==="newForm"){
     const d=S.draft, amount=num(d.amount); const miss=[];
-    if(!d.proj) miss.push("төсөл"); if(!d.cat) miss.push("ангилал"); if(!d.what.trim()) miss.push("юу авах"); if(!(amount>0)) miss.push("дүн"); if(!d.rt) miss.push("баримтын төрөл");
+    if(!d.proj) miss.push("төсөл"); if(!d.rtype&&!d.cat) miss.push("ангилал"); if(!d.rtype&&!d.what.trim()) miss.push("юу авах"); if(!(amount>0)) miss.push("дүн"); if(!d.rtype&&!d.rt) miss.push("баримтын төрөл");
+    if(d.rtype==="Урьдчилгаа цалин"&&!d.emp) miss.push("ажилтан"); if((d.rtype==="Зээлийн үндсэн төлбөр"||d.rtype==="Зээлийн хүү, шимтгэл")&&!d.loan) miss.push("аль зээл");
     if(!d.payee.trim()) miss.push("хүлээн авагч"); if(!d.bank) miss.push("банк"); if(d.acct.length<6) miss.push("дансны дугаар"); if(String(d.phone).replace(/\D/g,"").length<8) miss.push("худалдагчийн утас");
     if(miss.length) return showErr("#formErr","Бөглөөгүй: "+miss.join(", ")+".");
     const b=$("#sendBtn"); b.disabled=true; b.textContent="📍 Байршил тогтоож байна…";
