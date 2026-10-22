@@ -248,9 +248,25 @@ function buildApp(ctx) {
  *   Хэрэглэгч — Нэр | Үүрэг (Ажилчин/Нягтлан/Админ/Захирал) | PIN (нууцалсан) | Имэйл | Утас | PIN солих
  */
 var ST = { WAIT: 'Хүлээгдэж буй', OK: 'Зөвшөөрсөн', NO: 'Буцаасан', PAID: 'Төлсөн' };
-var ROLES = ['Ажилчин', 'Тогооч', 'ХАБ инженер', 'Төслийн удирдагч', 'Хүний нөөц', 'Нягтлан', 'Админ', 'Захирал'];
+var ROLES = ['Ажилчин', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер', 'Тогооч', 'ХАБ инженер', 'Төслийн удирдагч', 'Хүний нөөц', 'Нягтлан', 'Админ', 'Захирал'];
+var PENDING = 'Хүлээгдэж буй';
 var VATS = ['НӨАТ-тай', 'НӨАТ-гүй'];
-function isDir_(u) { return u.role === 'Захирал' || u.role === 'Админ'; }
+function isDir_(u) { return u.role === 'Захирал'; }
+function isAdmin_(u) { return u.role === 'Админ'; }
+function isMaster_(u) { return u.role === 'Мастер'; }
+function isMech_(u) { return u.role === 'Механик'; }
+function isStore_(u) { return u.role === 'Нярав'; }
+function isOper_(u) { return u.role === 'Оператор'; }
+function canUsers_(u) { return isBoss_(u) || isHR_(u) || isAdmin_(u); }
+function fuelView_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u) || isPM_(u); }
+function fuelAdd_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u); }
+function approveLimit_() { return num_(PropertiesService.getScriptProperties().getProperty('APPROVE_LIMIT')) || 10000000; }
+// Батлах эрх: 10 сая хүртэл — тухайн төслийн удирдагч эсвэл захирал; түүнээс дээш — зөвхөн захирал. Нягтлан батлахгүй, зөвхөн төлнө/буцаана.
+function canApprove_(u, r) {
+  if (r.by === u.name && !isDir_(u)) return false;
+  if (isDir_(u)) return true;
+  return isPM_(u) && canProj_(u, r.proj) && num_(r.amount) <= approveLimit_();
+}
 function isCook_(u) { return u.role === 'Тогооч'; }
 function isPM_(u) { return u.role === 'Төслийн удирдагч'; }
 function isHR_(u) { return u.role === 'Хүний нөөц'; }
@@ -278,6 +294,7 @@ function api(body) { return JSON.stringify(handle_(JSON.parse(body))); }
 function handle_(b) {
   try {
     if (b.action === 'login') return login_(b.login, b.pin);
+    if (b.action === 'register') return register_(b.r);
     var me = auth_(b);
     if (!me) return { error: 'auth', message: 'Дахин нэвтэрнэ үү' };
     if (b.action === 'changePin') return changePin_(me, b.oldPin, b.newPin);
@@ -286,15 +303,16 @@ function handle_(b) {
     var director = isDir_(me);
     switch (b.action) {
       case 'meta': return meta_();
+      case 'contacts': return { contacts: contacts_() };
       case 'people':
-        if (!boss && !isHR_(me) && !isPM_(me)) return deny_();
+        if (!boss && !isHR_(me) && !isPM_(me) && !isMaster_(me)) return deny_();
         return peopleData_(me);
       case 'markP':
-        if (!director && !isHR_(me) && !isPM_(me)) return deny_();
+        if (!director && !isHR_(me) && !isPM_(me) && !isMaster_(me)) return deny_();
         markP_(me, b.a); return peopleData_(me);
       case 'my': return myData_(me);
       case 'meals':
-        if (!isCook_(me) && !boss && !isHR_(me) && !isPM_(me)) return deny_();
+        if (!isCook_(me) && !boss && !isHR_(me) && !isPM_(me) && !isMaster_(me)) return deny_();
         return mealData_(me);
       case 'mealAdd':
         if (!isCook_(me)) return deny_();
@@ -310,10 +328,10 @@ function handle_(b) {
         if (!boss && !isPM_(me)) return deny_();
         leaveDecide_(me, b.id, b.ok, b.note); return peopleData_(me);
       case 'taskSend':
-        if (!director && !isPM_(me)) return deny_();
+        if (!director && !isPM_(me) && !isMaster_(me)) return deny_();
         taskSend_(me, b.t); return peopleData_(me);
       case 'taskDelete':
-        if (!director && !isPM_(me)) return deny_();
+        if (!director && !isPM_(me) && !isMaster_(me)) return deny_();
         taskDelete_(me, b.id); return peopleData_(me);
       case 'taskAck': taskUpd_(me, b.id, 'ack'); return myData_(me);
       case 'taskReport': taskUpd_(me, b.id, b.done ? 'done' : 'notdone', b.note); return myData_(me);
@@ -345,25 +363,26 @@ function handle_(b) {
         CacheService.getScriptCache().remove('meta'); return meta_();
       case 'boot':
         var allRows = rows_();
-        var mine = boss ? allRows : allRows.filter(function (r) { return r.by === me.name; });
+        var mine = boss ? allRows : allRows.filter(function (r) { return r.by === me.name || (isPM_(me) && canProj_(me, r.proj)); });
         var out = { reqs: mine.slice(-500), meta: meta_() };
         if (boss) out.projects = dashboard_(allRows);
         try { out.hab = habBadge_(me); } catch (e) {}
         out.myProjects = me.projects;
+        out.canReq = me.canReq !== false;
         try { out.hr = hrBadge_(me); } catch (e) {}
         try { out.meal = lastMeal_(me); } catch (e) {}
         return out;
       case 'list':
         var all = rows_();
-        if (!boss) all = all.filter(function (r) { return r.by === me.name; }); // ажилчин зөвхөн өөрийнхийг
+        if (!boss) all = all.filter(function (r) { return r.by === me.name || (isPM_(me) && canProj_(me, r.proj)); }); // ажилчин зөвхөн өөрийнхийг, ТУ өөрийн төслийнхийг
         return { reqs: all.slice(-500) };
       case 'create': return { req: create_(me, b.req, b.photo) };
       case 'status':
-        if (!boss) return deny_();
+        if (!boss && !isPM_(me)) return deny_();
         return { req: setStatus_(me, b.id, b.status, b.note) };
       case 'photo':
         var r = rows_().filter(function (x) { return x.id === b.id; })[0];
-        if (!r || !r.photo || (!boss && r.by !== me.name)) return { data: '' };
+        if (!r || !r.photo || (!boss && r.by !== me.name && !(isPM_(me) && canProj_(me, r.proj)))) return { data: '' };
         return { data: fileData_(r.photo) };
       case 'dashboard':
         if (!boss) return deny_();
@@ -389,14 +408,18 @@ function handle_(b) {
         var inc = incomesRaw_().filter(function (x) { return x.id === b.id; })[0];
         return { data: inc && inc.photo ? fileData_(inc.photo) : '' };
       case 'userList':
-        if (!boss && !isHR_(me)) return deny_();
-        return { users: pubUsers_(boss) };
+        if (!canUsers_(me)) return deny_();
+        return { users: pubUsers_(boss, true) };
       case 'saveUser':
-        if (!boss && !isHR_(me)) return deny_();
-        saveUser_(me, b.user, b.isNew); return { users: pubUsers_(boss) };
+        if (!canUsers_(me)) return deny_();
+        saveUser_(me, b.user, b.isNew); return { users: pubUsers_(boss, true) };
       case 'deleteUser':
-        if (!boss && !isHR_(me)) return deny_();
-        deleteUser_(me, b.target); return { users: pubUsers_(boss) };
+        if (!canUsers_(me)) return deny_();
+        deleteUser_(me, b.target); return { users: pubUsers_(boss, true) };
+      case 'setLimit':
+        if (!director) return deny_();
+        PropertiesService.getScriptProperties().setProperty('APPROVE_LIMIT', String(Math.round(num_(b.limit)) || 10000000));
+        CacheService.getScriptCache().remove('meta'); return meta_();
       case 'letters':
         if (!isBoss_(me)) return deny_();
         return letterData_(me);
@@ -413,14 +436,22 @@ function handle_(b) {
       case 'letterCfg':
         if (!isDir_(me) && me.role !== 'Нягтлан') return deny_();
         letterCfgSave_(b.cfg || {}, b.photo); return letterData_(me);
-      case 'fuel': case 'saveEquip': case 'deleteEquip': case 'equipPhoto': case 'addFuel': case 'mark': case 'deleteFuel': case 'fuelPhoto':
-        if (!boss) return deny_();
+      case 'fuel': case 'equipPhoto': case 'fuelPhoto':
+        if (!fuelView_(me)) return deny_();
+        break;
+      case 'addFuel': case 'mark':
+        if (!fuelAdd_(me)) return deny_();
+        break;
+      case 'saveEquip': case 'deleteFuel':
+        if (!boss && !isMech_(me)) return deny_();
+        break;
+      case 'deleteEquip':
+        if (!director) return deny_();
         break;
     }
     switch (b.action) {
       case 'fuel': return fuelData_(me, boss);
       case 'saveEquip':
-        if (!boss) return deny_();
         saveEquip_(b.eq, b.photo); return fuelData_(me, boss);
       case 'deleteEquip':
         if (!director) return deny_();
@@ -431,11 +462,10 @@ function handle_(b) {
       case 'addFuel': addFuel_(me, b.f, b.photo); return fuelData_(me, boss);
       case 'mark': mark_(me, boss, b.a); return fuelData_(me, boss);
       case 'deleteFuel':
-        if (!boss) return deny_();
         deleteFuel_(b.id); return fuelData_(me, boss);
       case 'fuelPhoto':
         var fr = fuelsRaw_().filter(function (x) { return x.id === b.id; })[0];
-        if (!fr || !fr.photo || (!boss && fr.by !== me.name)) return { data: '' };
+        if (!fr || !fr.photo || (!boss && !isMech_(me) && !isStore_(me) && !isPM_(me) && fr.by !== me.name)) return { data: '' };
         return { data: fileData_(fr.photo) };
     }
     return { error: 'bad', message: 'Unknown action' };
@@ -456,14 +486,16 @@ function users_() {
   var cache = CacheService.getScriptCache(), hit = cache.get('users');
   if (hit) return JSON.parse(hit);
   var sh = sh_('Хэрэглэгч'); if (sh.getLastRow() < 2) return [];
-  if (sh.getMaxColumns() < 11) sh.insertColumnsAfter(sh.getMaxColumns(), 11 - sh.getMaxColumns());
-  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 11).getValues();
+  if (sh.getMaxColumns() < 18) sh.insertColumnsAfter(sh.getMaxColumns(), 18 - sh.getMaxColumns());
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues();
   var out = [];
   v.forEach(function (r, i) {
     if (!r[0]) return;
     out.push({ row: i + 2, name: String(r[0]).trim(), role: String(r[1]).trim(), pin: String(r[2]).trim(), email: String(r[3] || '').trim(),
                phone: digits_(r[4]), mustChange: r[5] === true || String(r[5]).toUpperCase() === 'TRUE', projects: projList_(r[6]),
-               position: String(r[7] || '').trim(), wageType: String(r[8]) === 'Сар' ? 'Сар' : 'Өдөр', wage: num_(r[9]), wdays: num_(r[10]) || 22 });
+               position: String(r[7] || '').trim(), wageType: String(r[8]) === 'Сар' ? 'Сар' : 'Өдөр', wage: num_(r[9]), wdays: num_(r[10]) || 22,
+               surname: String(r[11] || '').trim(), given: String(r[12] || '').trim(), age: num_(r[13]) || '', sex: String(r[14] || ''),
+               canReq: !(r[15] === false || String(r[15]).toUpperCase() === 'FALSE'), status: String(r[16] || '').trim(), regAt: fmtDate_(r[17]) });
   });
   cache.put('users', JSON.stringify(out), 300);
   return out;
@@ -471,8 +503,33 @@ function users_() {
 function projList_(x) { var p = String(x || '').trim(); if (!p || p === '*') return null; return p.split(/[,\s]+/).filter(function (c) { return c; }); }
 function canProj_(u, code) { return !u.projects || u.projects.indexOf(code) >= 0; }
 function dropUsers_() { CacheService.getScriptCache().remove('users'); }
-function pubUsers_(full) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position };
+function pubUsers_(full, personal) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position, canReq: u.canReq, status: u.status };
+  if (personal) { o.surname = u.surname; o.given = u.given; o.age = u.age; o.sex = u.sex; o.regAt = u.regAt; }
   if (full) { o.wageType = u.wageType; o.wage = u.wage; o.wdays = u.wdays; } return o; }); }
+function activeUsers_() { return users_().filter(function (u) { return u.status !== PENDING; }); }
+function contacts_() { return activeUsers_().filter(function (u) { return u.phone; }).map(function (u) { return { name: u.name, role: u.role, position: u.position, phone: u.phone }; }); }
+var UHEAD2 = ['Овог', 'Өөрийн нэр', 'Нас', 'Хүйс', 'Хүсэлтийн эрх', 'Төлөв', 'Бүртгүүлсэн'];
+function userHead_(sh) { if (!String(sh.getRange(1, 12).getValue())) sh.getRange(1, 12, 1, 7).setValues([UHEAD2]); }
+function register_(r) {
+  r = r || {};
+  var sur = String(r.surname || '').trim(), giv = String(r.given || '').trim(), age = Math.round(num_(r.age)), sex = String(r.sex || '').trim(), phone = digits_(r.phone), pin = String(r.pin || '').trim();
+  if (!sur || !giv) throw new Error('Овог, нэрээ бичнэ үү');
+  if (!(age >= 16 && age <= 85)) throw new Error('Насаа зөв бичнэ үү');
+  if (['Эрэгтэй', 'Эмэгтэй'].indexOf(sex) < 0) throw new Error('Хүйсээ сонгоно уу');
+  if (phone.length !== 8) throw new Error('Утасны дугаар 8 оронтой байна');
+  checkPin_('Ажилчин', pin);
+  var all = users_();
+  if (all.some(function (x) { return x.phone === phone; })) throw new Error('Энэ утасны дугаар бүртгэлтэй байна. Нэвтрэх хэсгээс орно уу.');
+  if (all.filter(function (x) { return x.status === PENDING; }).length >= 50) throw new Error('Бүртгэлийн хүсэлт олон хүлээгдэж байна. Хүний нөөцөд хандана уу.');
+  var base = sur.charAt(0).toUpperCase() + '.' + giv.charAt(0).toUpperCase() + giv.slice(1), name = base, k = 2;
+  while (all.some(function (x) { return x.name === name; })) name = base + ' ' + (k++);
+  var sh = sh_('Хэрэглэгч'); userHead_(sh);
+  sh.appendRow([name, 'Ажилчин', hashPin_(name, pin), '', "'" + phone, false, '', '', 'Өдөр', '', '', sur, giv, age, sex, true, PENDING, new Date()]);
+  dropUsers_();
+  var to = users_().filter(function (u) { return (isHR_(u) || isDir_(u) || isAdmin_(u)) && u.email; }).map(function (u) { return u.email; });
+  if (to.length) try { MailApp.sendEmail(to.join(','), 'Шинэ бүртгэл: ' + name, sur + ' ' + giv + ' (' + age + ', ' + sex + ', ' + phone + ') апп-д бүртгүүллээ. Тохиргоо → Хэрэглэгчид хэсгээс баталгаажуулна уу.\n\n' + (ScriptApp.getService().getUrl() || '')); } catch (e) {}
+  return { ok: true, name: name };
+}
 function digits_(x) { return String(x === undefined || x === null ? '' : x).replace(/\D/g, ''); }
 function hex_(bytes) { return bytes.map(function (x) { return ('0' + (x & 255).toString(16)).slice(-2); }).join(''); }
 function secret_() {
@@ -482,7 +539,7 @@ function secret_() {
 }
 function hashPin_(name, pin) { return 'h1:' + hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, secret_() + '|' + name + '|' + pin)); }
 function pinOk_(u, pin) { return u.pin.indexOf('h1:') === 0 ? u.pin === hashPin_(u.name, pin) : (u.pin !== '' && u.pin === pin); }
-function minLen_(role) { return role === 'Ажилчин' || role === 'Тогооч' ? 6 : 8; }
+function minLen_(role) { return ['Ажилчин', 'Тогооч', 'Оператор', 'Механик', 'Нярав', 'Мастер', 'Чанарын инженер'].indexOf(role) >= 0 ? 6 : 8; }
 function checkPin_(role, pin) {
   var n = minLen_(role);
   if (!new RegExp('^\\d{' + n + ',12}$').test(pin)) throw new Error('PIN ' + n + '-12 оронтой тоо байна');
@@ -509,13 +566,14 @@ function login_(login, pin) {
     return { error: 'bad', message: left > 0 ? 'Утас эсвэл PIN буруу байна. ' + left + ' оролдлого үлдлээ.' : 'Олон удаа буруу оруулсан тул 15 минут түгжигдлээ.' };
   }
   cache.remove(key);
+  if (u.status === PENDING) return { error: 'bad', message: 'Бүртгэл тань хараахан баталгаажаагүй байна. Хүний нөөц эсвэл захирал баталгаажуулсны дараа нэвтэрнэ.' };
   if (u.pin.indexOf('h1:') !== 0) { setPin_(u, pin, true); u = users_().filter(function (x) { return x.name === u.name; })[0]; } // хуучин ил PIN-ийг нууцлах
   return { user: { name: u.name, role: u.role, token: token_(u), mustChange: u.mustChange } };
 }
 function auth_(b) {
   if (!b.name || !b.token) return null;
   var u = users_().filter(function (x) { return x.name === b.name; })[0];
-  return u && token_(u) === b.token ? u : null;
+  return u && u.status !== PENDING && token_(u) === b.token ? u : null;
 }
 function changePin_(me, oldPin, newPin) {
   oldPin = String(oldPin || '').trim(); newPin = String(newPin || '').trim();
@@ -533,6 +591,7 @@ function saveUser_(me, u, isNew) {
   if (phone.length < 8) throw new Error('Утасны дугаар 8 оронтой байна');
   if (role === 'Захирал' && !isDir_(me)) throw new Error('Захирлын эрх олгох боломжгүй');
   if (isHR_(me) && ['Нягтлан', 'Админ', 'Захирал'].indexOf(role) >= 0) throw new Error('Хүний нөөц энэ эрхийг олгох боломжгүй');
+  if (isAdmin_(me) && ['Нягтлан', 'Захирал'].indexOf(role) >= 0) throw new Error('Админ энэ эрхийг олгох боломжгүй');
   if (name === me.name && role !== me.role) throw new Error('Өөрийн эрхийг өөрчлөх боломжгүй');
   if (isNew && !tempPin) throw new Error('Түр PIN үүсээгүй байна');
   if (tempPin) checkPin_(role, tempPin);
@@ -542,14 +601,19 @@ function saveUser_(me, u, isNew) {
   if (all.some(function (x) { return x.phone === phone && x.name !== name; })) throw new Error('Энэ утасны дугаар өөр хэрэглэгчид бүртгэлтэй байна');
   if (ex && ex.role === 'Захирал' && !isDir_(me)) throw new Error('Захирлын мэдээллийг засах эрхгүй');
   if (ex && isHR_(me) && (ex.role === 'Нягтлан' || isDir_(ex))) throw new Error('Энэ хэрэглэгчийг засах эрхгүй');
+  if (ex && isAdmin_(me) && (ex.role === 'Нягтлан' || isDir_(ex))) throw new Error('Энэ хэрэглэгчийг засах эрхгүй');
   if (ex && ex.name === me.name && tempPin) throw new Error('Өөрийн PIN-ийг "Миний PIN солих" хэсгээс солино уу');
   var sh = sh_('Хэрэглэгч');
   var pinCell = tempPin ? hashPin_(name, tempPin) : ex.pin, must = tempPin ? true : ex.mustChange;
   var pr = u.projects === '*' || u.projects === null ? '*' : (u.projects || []).map(function (c) { return String(c).trim(); }).filter(function (c) { return c; }).join(',');
   if (!pr) throw new Error('Дор хаяж нэг төсөл сонгоно уу');
   var row = [name, role, pinCell, email, "'" + phone, must, pr, String(u.position || '').trim()];
+  var ext = [String(u.surname != null ? u.surname : (ex ? ex.surname : '')).trim(), String(u.given != null ? u.given : (ex ? ex.given : '')).trim(), u.age != null && u.age !== '' ? Math.round(num_(u.age)) : (ex ? ex.age : ''),
+             String(u.sex != null ? u.sex : (ex ? ex.sex : '')), u.canReq != null ? !!u.canReq : (ex ? ex.canReq : true), '', ex && ex.regAt ? ex.regAt : ''];
   if (!String(sh.getRange(1, 7).getValue())) sh.getRange(1, 7, 1, 5).setValues([['Төслүүд', 'Албан тушаал', 'Цалингийн төрөл', 'Цалин', 'Сарын ажлын өдөр']]);
-  if (isNew) sh.appendRow(row); else sh.getRange(ex.row, 1, 1, 8).setValues([row]);
+  userHead_(sh);
+  if (isNew) sh.appendRow(row.concat(['Өдөр', '', ''], ext.slice(0, 6), [new Date()]));
+  else { sh.getRange(ex.row, 1, 1, 8).setValues([row]); sh.getRange(ex.row, 12, 1, 6).setValues([ext.slice(0, 6)]); }
   dropUsers_();
   return pubUsers_();
 }
@@ -560,6 +624,7 @@ function deleteUser_(me, target) {
     if (String(v[i][0]).trim() === target) {
       if (String(v[i][1]).trim() === 'Захирал' && !isDir_(me)) throw new Error('Захирлыг устгах эрхгүй');
       if (isHR_(me) && ['Нягтлан', 'Админ', 'Захирал'].indexOf(String(v[i][1]).trim()) >= 0) throw new Error('Энэ хэрэглэгчийг хасах эрхгүй');
+      if (isAdmin_(me) && ['Нягтлан', 'Захирал'].indexOf(String(v[i][1]).trim()) >= 0) throw new Error('Энэ хэрэглэгчийг хасах эрхгүй');
       sh.deleteRow(i + 1);
     }
   }
@@ -614,7 +679,8 @@ function meta_() {
     projects: projects_().filter(function (p) { return p.active; }).map(function (p) { return [p.code, p.name]; }),
     categories: c.map(function (r) { return [r[0], r[1]]; }),
     banks: b.map(function (r) { return r[0]; }),
-    locRequired: locRequired_()
+    locRequired: locRequired_(),
+    approveLimit: approveLimit_()
   };
   cache.put('meta', JSON.stringify(res), 600);
   return res;
@@ -718,6 +784,7 @@ function create_(me, f, photo) {
   var amount = num_(f.amount);
   if (!f.proj || !f.cat || !f.what || !(amount > 0) || !f.payee || !f.bank || !f.acct || VATS.indexOf(f.vat) < 0 || String(f.phone || '').replace(/\D/g, '').length < 8) throw new Error('Мэдээлэл дутуу байна');
   if (!canProj_(me, f.proj)) throw new Error('Танд ' + f.proj + ' төсөлд хүсэлт илгээх эрх алга. Нягтланд хандана уу.');
+  if (me.canReq === false) throw new Error('Танд төлбөрийн хүсэлт илгээх эрх олгогдоогүй байна.');
   var loc = locStr_(f.loc);
   if (!loc && !isBoss_(me) && locRequired_()) throw new Error('Байршил тогтоогдсонгүй. Утасны байршлаа (Location) асаагаад дахин илгээнэ үү.');
   var acct = String(f.acct).replace(/\D/g, ''), row;
@@ -740,7 +807,10 @@ function setStatus_(me, id, status, note) {
   var sh = sh_('Хүсэлт'), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) {
     if (v[i][0] === id) {
-      var cur = v[i][12];
+      var cur = v[i][12], rq = { by: String(v[i][2]), proj: String(v[i][3]), amount: num_(v[i][10]) };
+      if (status === ST.OK && !canApprove_(me, rq)) throw new Error(rq.by === me.name ? 'Өөрийн хүсэлтийг өөрөө батлах боломжгүй' : rq.amount > approveLimit_() && isPM_(me) ? approveLimit_().toLocaleString() + '₮-өөс дээш хүсэлтийг зөвхөн захирал батална' : 'Энэ хүсэлтийг батлах эрхгүй');
+      if (status === ST.NO && !isBoss_(me) && !(isPM_(me) && canProj_(me, rq.proj))) throw new Error('Буцаах эрхгүй');
+      if (status === ST.PAID && !isBoss_(me)) throw new Error('Төлбөрийг зөвхөн нягтлан, захирал тэмдэглэнэ');
       if (status === ST.PAID && cur !== ST.OK) throw new Error('Эхлээд зөвшөөрөх шаардлагатай');
       if ((status === ST.OK || status === ST.NO) && cur !== ST.WAIT) throw new Error('Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн');
       sh.getRange(i + 1, 13).setValue(status);
@@ -957,7 +1027,7 @@ function fuelData_(me, boss) {
     var entries = c.list.map(function (f) {
       return { id: f.id, date: f.date, by: f.by, liters: f.liters, meter: f.meter, delta: f.delta, rate: f.rate, base: Math.round(f.base * 100) / 100, mark: f.mark, note: f.note, hasPhoto: !!f.photo };
     });
-    if (!boss) entries = entries.filter(function (f) { return f.by === me.name; });
+    if (!boss && !isMech_(me) && !isStore_(me) && !isPM_(me)) entries = entries.filter(function (f) { return f.by === me.name; });
     return { id: e.id, proj: e.proj, plate: e.plate, name: e.name, kind: e.kind, norm: e.norm, note: e.note, active: e.active, hasPhoto: !!e.photo,
              own: e.own, rate: boss ? e.rate : 0, rateType: e.rateType, monthDays: e.monthDays, owner: e.owner, ownerPhone: boss ? e.ownerPhone : '', bank: boss ? e.bank : '', acct: boss ? e.acct : '', fuelBy: e.fuelBy, start: e.start,
              liters: c.liters, avg: c.avg, work: c.work, lastMeter: c.lastMeter, lastMark: c.last ? c.last.mark : '', lastRate: c.last ? c.last.rate : 0, high: c.high,
@@ -1067,7 +1137,7 @@ function habData_(me) {
     var o = {}; for (var k in x) o[k] = x[k]; o.hasPhoto = !!x.photo; delete o.photo; return o;
   }).reverse().slice(0, 300);
   var out = { today: t, notes: notes, reports: reps, types: HAB_TYPES, statuses: HAB_ST };
-  if (manager) out.people = users_().map(function (u) { return u.name; });
+  if (manager) out.people = activeUsers_().map(function (u) { return u.name; });
   return out;
 }
 function habSave_(me, n) {
@@ -1132,8 +1202,8 @@ function payCfg_() {
   return d;
 }
 function visiblePeople_(me) {
-  var all = users_();
-  if (!isPM_(me) || !me.projects) return all;
+  var all = activeUsers_();
+  if (!(isPM_(me) || isMaster_(me)) || !me.projects) return all;
   return all.filter(function (u) { return u.name === me.name || !u.projects || u.projects.some(function (c) { return me.projects.indexOf(c) >= 0; }); });
 }
 function rating_(tasks, name) {
@@ -1164,7 +1234,7 @@ function peopleData_(me) {
     leaves: leaves_().filter(function (l) { return names[l.by]; }).reverse().slice(0, 300),
     tasks: tasks.filter(function (x) { return x.due >= tlim && (names[x.to] || x.from === me.name); }).reverse(),
     cfg: payroll ? payCfg_() : null,
-    canMark: isDir_(me) || isHR_(me) || isPM_(me), canTask: isDir_(me) || isPM_(me), canLeave: isBoss_(me) || isPM_(me), payroll: payroll
+    canMark: isDir_(me) || isHR_(me) || isPM_(me) || isMaster_(me), canTask: isDir_(me) || isPM_(me) || isMaster_(me), canLeave: isBoss_(me) || isPM_(me), payroll: payroll
   };
 }
 function markP_(me, a) {
@@ -1379,7 +1449,7 @@ function letterVoid_(me, no) {
     ctx.uploads.push({ id, mime, b64: dataUrl.split(",")[1] || "" });
     return id;
   }
-  return { handle_, auth_, users_, isBoss_, isDir_, isPM_, isHab_, isCook_, canProj_, ymd_ };
+  return { handle_, auth_, users_, isBoss_, isDir_, isPM_, isHab_, isCook_, isHR_, isAdmin_, isMaster_, canProj_, canApprove_, approveLimit_, ymd_ };
 }
 
 /* ---------- хүсэлт боловсруулах ---------- */
@@ -1502,21 +1572,28 @@ async function pushAction_(b, store) {
 }
 function notifyPlan_(app, b, out) {
   if (!out || out.error) return [];
+  if (b.action === "register") {
+    const U0 = app.users_(), nm = out.name;
+    return [{ to: U0.filter((u) => u.status !== "Хүлээгдэж буй" && (app.isHR_(u) || app.isDir_(u) || app.isAdmin_(u))).map((u) => u.name), title: "🆕 Шинэ бүртгэл", body: nm + " апп-д бүртгүүллээ. Тохиргоо → Хэрэглэгчид хэсгээс баталгаажуулна уу.", tag: "reg" }];
+  }
   const me = app.auth_(b);
   if (!me) return [];
-  const U = app.users_();
+  const U = app.users_().filter((u) => u.status !== "Хүлээгдэж буй");
   const names = (f) => U.filter((u) => u.name !== me.name && f(u)).map((u) => u.name);
   const money = (n) => Math.round(Number(n) || 0).toLocaleString("en-US") + "₮";
   const cut = (t, n) => { t = String(t || "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
   switch (b.action) {
     case "create": {
       const r = out.req; if (!r) return [];
-      return [{ to: names((u) => app.isBoss_(u) && app.canProj_(u, r.proj)), title: "💰 Шинэ хүсэлт · " + r.proj, body: me.name + ": " + cut(r.what, 60) + " — " + money(r.amount), tag: "req-" + r.id }];
+      const big = Number(r.amount) > app.approveLimit_();
+      return [{ to: names((u) => app.canApprove_(u, r) && (app.isDir_(u) || app.canProj_(u, r.proj))), title: (big ? "💰 Батлах (захирал) · " : "💰 Батлах · ") + r.proj, body: me.name + ": " + cut(r.what, 60) + " — " + money(r.amount), tag: "req-" + r.id }];
     }
     case "status": {
-      const r = out.req; if (!r || r.by === me.name) return [];
+      const r = out.req; if (!r) return [];
       const em = { "Зөвшөөрсөн": "✅", "Төлсөн": "💸", "Буцаасан": "↩️" }[b.status] || "";
-      return [{ to: [r.by], title: em + " Хүсэлт: " + b.status, body: cut(r.what, 60) + " — " + money(r.amount) + (b.note ? " · " + cut(b.note, 80) : ""), tag: "req-" + r.id }];
+      const plan = r.by === me.name ? [] : [{ to: [r.by], title: em + " Хүсэлт: " + b.status, body: cut(r.what, 60) + " — " + money(r.amount) + (b.note ? " · " + cut(b.note, 80) : ""), tag: "req-" + r.id }];
+      if (b.status === "Зөвшөөрсөн") plan.push({ to: names((u) => u.role === "Нягтлан" && app.canProj_(u, r.proj)), title: "💳 Төлөхөд бэлэн · " + r.proj, body: cut(r.what, 60) + " — " + money(r.amount) + " · баталсан " + me.name, tag: "pay-" + r.id });
+      return plan;
     }
     case "taskSend":
       return [{ to: ((b.t && b.t.to) || []).filter((n) => n !== me.name), title: "📋 Шинэ даалгавар", body: me.name + ": " + cut(b.t.text, 100) + " · хугацаа " + b.t.due, tag: "task" }];
