@@ -218,6 +218,7 @@ div.f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mute
 .ltool{display:flex;gap:6px;margin:4px 0 6px}.ltool button{padding:6px 12px;font-size:13.5px}
 #l_body{tab-size:4;-moz-tab-size:4;font-family:Arial,sans-serif;line-height:1.45;white-space:pre-wrap}
 .stampbox{display:flex;justify-content:center;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)}.stampbox img{max-width:180px}
+.lsug{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-top:4px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.10)}.lsug button{display:block;width:100%;text-align:left;border:0;border-radius:0;background:none;padding:9px 12px;font-size:14.5px;font-weight:600;color:var(--ink);white-space:normal}.lsug button+button{border-top:1px solid var(--line)}.lsug button[aria-selected="true"],.lsug button:hover{background:var(--soft)}.lsug small{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:1px}
 </style>
 
 <header class="bar"><div class="wrap">
@@ -1823,7 +1824,7 @@ function renderLetters(m){
     L.formFor=d;
     m.innerHTML=`<button class="big" data-lgo="${d.no?"view":"list"}">← Буцах</button>
      <form class="card form" id="lForm" novalidate><div style="font-weight:600;font-size:17px">${d.no?"Албан бичиг засах · № "+esc(d.no):"Шинэ албан бичиг · № "+esc(D.next)}</div>
-      <label class="f">Хаана (хүлээн авагч)<textarea id="l_to" rows="2" placeholder="Жишээ: ГАШУУН СУХАЙТ АВТО ЗАМ ХХК-д">${esc(d.to)}</textarea></label>
+      <label class="f">Хаана (хүлээн авагч)<textarea id="l_to" rows="2" autocomplete="off" placeholder="Эхний үсгүүдээ бичихэд өмнө илгээсэн газрууд гарч ирнэ">${esc(d.to)}</textarea><div class="lsug" id="lSug" hidden></div></label>
       <label class="f">Гарчиг<input id="l_title" value="${esc(d.title)}" placeholder="Жишээ: Бетон замын ажил эхлүүлэх тухай"></label>
       <div class="f"><span>Агуулга</span><div class="ltool"><button type="button" data-ltab title="Догол мөр (Tab)">⇥ Догол мөр</button><button type="button" data-lbold title="Сонгосон үгийг тод болгох"><b>Т</b> Тод</button></div><textarea id="l_body" rows="14" spellcheck="false">${esc(d.body)}</textarea><span class="small muted"><b>Tab</b> = догол мөр, <b>Enter</b> = шинэ мөр, хоосон мөр = зай. Үгийг сонгоод «Т Тод» дарвал тод болно.</span></div>
       <div class="row2"><label class="f">Огноо<input id="l_date" type="date" value="${esc(d.date)}"></label><label class="f">Гарын үсэг<select id="l_stamp"><option value="1" ${d.stamp?"selected":""}>Тамга, гарын үсэгтэй</option><option value="0" ${d.stamp?"":"selected"}>Тамга, гарын үсэггүй</option></select></label></div>
@@ -1837,6 +1838,23 @@ function renderLetters(m){
     m.querySelector("[data-ltab]").addEventListener("click",()=>{ const a=ta.selectionStart, ls=ta.value.lastIndexOf("\n",a-1)+1; ta.setRangeText("\t",ls,ls,"end"); ta.setSelectionRange(a+1,a+1); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); });
     m.querySelector("[data-lbold]").addEventListener("click",()=>{ const a=ta.selectionStart,b=ta.selectionEnd; if(a===b){ toast("Эхлээд тод болгох үгээ сонгоно уу"); return; } const t=ta.value.slice(a,b); ins(/^\*\*[\s\S]*\*\*$/.test(t)?t.slice(2,-2):"**"+t+"**",true); });
     const upd=()=>{ const v=Object.assign({},d,lFormVals(),{no:d.no||D.next}); const sv=$("#l_stamp").value==="1"; lShow($("#lPrev"),v,sv?L.stampData:""); };
+    const tt=$("#l_to"), sg=$("#lSug"), nz=x=>String(x||"").toLowerCase().replace(/\s+/g," ").trim();
+    const REC=(()=>{ const M={}; D.letters.forEach(x=>{ if(x.status==="Хүчингүй"||!x.to) return; const k=nz(x.to); if(!M[k]) M[k]={to:x.to,n:0,last:x.date}; M[k].n++; if(x.date>M[k].last) M[k].last=x.date; }); return Object.values(M).sort((a,b)=>b.n-a.n||(a.last<b.last?1:-1)); })();
+    let sel=-1, cur=[];
+    const drawSug=()=>{ const q=nz(tt.value);
+      cur=(q?REC.filter(r=>nz(r.to).includes(q)&&nz(r.to)!==q).sort((a,b)=>(nz(b.to).startsWith(q)?1:0)-(nz(a.to).startsWith(q)?1:0)):REC).slice(0,6);
+      if(!cur.length||document.activeElement!==tt){ sg.hidden=true; return; }
+      sel=Math.min(sel,cur.length-1);
+      sg.innerHTML=cur.map((r,i)=>`<button type="button" data-si="${i}" aria-selected="${i===sel}">${esc(r.to.replace(/\n/g," / "))}<small>${r.n} удаа · сүүлд ${esc(lDots(r.last))}</small></button>`).join(""); sg.hidden=false; };
+    const pick=i=>{ const r=cur[i]; if(!r) return; tt.value=r.to; sg.hidden=true; sel=-1; tt.dispatchEvent(new Event("input",{bubbles:true})); sg.hidden=true; $("#l_title").focus(); };
+    tt.addEventListener("input",()=>{ sel=-1; drawSug(); }); tt.addEventListener("focus",drawSug); tt.addEventListener("blur",()=>setTimeout(()=>{ sg.hidden=true; },180));
+    tt.addEventListener("keydown",e=>{ if(sg.hidden||!cur.length) return;
+      if(e.key==="ArrowDown"){ e.preventDefault(); sel=(sel+1)%cur.length; drawSug(); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); sel=sel<=0?cur.length-1:sel-1; drawSug(); }
+      else if(e.key==="Enter"&&sel>=0){ e.preventDefault(); pick(sel); }
+      else if(e.key==="Escape"){ sg.hidden=true; } });
+    sg.addEventListener("mousedown",e=>e.preventDefault());
+    sg.addEventListener("click",e=>{ const b=e.target.closest("[data-si]"); if(b) pick(+b.dataset.si); });
     const sync=()=>{ Object.assign(d,lFormVals(),{stamp:$("#l_stamp").value==="1"}); lDraftSet(d); };
     $("#lForm").addEventListener("input",()=>{ sync(); upd(); }); $("#lForm").addEventListener("change",()=>{ sync(); upd(); });
     if(cfg.hasStamp&&L.stampData===undefined) lStamp().then(upd).catch(()=>{});
