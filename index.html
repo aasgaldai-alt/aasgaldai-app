@@ -193,6 +193,24 @@ table.tx tr.tot td{font-weight:600;border-bottom:none;border-top:1px solid var(-
   .dlg{max-width:440px}
 }
 
+.a4wrap{overflow:hidden;position:relative;border-radius:10px;box-shadow:0 2px 14px rgba(0,0,0,.12);background:#fff;margin-bottom:16px}
+.a4{width:794px;height:1123px;background:#fff;color:#111;transform-origin:0 0;font:15.3px/1.25 Arial,Roboto,sans-serif;position:absolute;left:0;top:0}
+.a4in{padding:57px 57px 68px 94px}
+.a4top{display:flex;justify-content:space-between;align-items:flex-start}
+.a4org{width:295px;text-align:center;font-family:"Times New Roman",Times,serif;font-size:12.7px;line-height:1.2;display:flex;flex-direction:column;align-items:center}
+.a4org img{width:64px;height:64px;object-fit:contain}.a4org b{font-size:16px;margin:4px 0 2px}
+.a4no{margin-top:22px;font-size:14px}
+.a4to,.a4sub{position:relative;text-align:center;white-space:pre-wrap}
+.a4to{width:272px;margin-top:76px;padding:5px 12px 0}
+.a4sub{width:359px;padding:5px 14px 0;margin:34px 0 30px}
+.cn::before,.cn::after{content:"";position:absolute;top:0;width:9px;height:9px;border-top:1.2px solid #111}
+.cn::before{left:0;border-left:1.2px solid #111}.cn::after{right:0;border-right:1.2px solid #111}
+.a4ref{font-family:"Times New Roman",Times,serif;font-size:14px;margin-top:11px}
+.a4body p{text-align:justify;text-indent:47px;margin:0 0 9px}
+.a4resp{margin:26px 0 0 47px}
+.a4sign{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-left:68px;padding-right:15px}
+.a4sign .st{flex:1;display:flex;justify-content:center;min-height:70px;align-items:center}.a4sign .st img{width:151px}
+.stampbox{display:flex;justify-content:center;background:#fff;border-radius:10px;padding:10px;border:1px solid var(--line)}.stampbox img{max-width:180px}
 </style>
 
 <header class="bar"><div class="wrap">
@@ -530,7 +548,7 @@ function setTabs(){
   const pend=S.reqs.filter(r=>r.status===ST.WAIT).length, topay=S.reqs.filter(r=>r.status===ST.OK).length;
   const hb=(S.habBadge?.unread||0)+(habMgr()?(S.habBadge?.newReports||0):0), HT=["hab","⛑","ХАБЭА",hb];
   const hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN];
-  const T=isBoss()?[["dash","▦","Төсөл",0],["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,["set","⚙","Тохиргоо",0]]
+  const T=isBoss()?[["dash","▦","Төсөл",0],["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
           :isCook()?[["kitchen","🍲","Гал тогоо",0],["new","＋","Хүсэлт",0],["mine","☰","Миний хүсэлт",0],HT,ME]
           :(isPM()||isHR())?[PT,["new","＋","Хүсэлт",0],["mine","☰","Миний хүсэлт",0],HT,ME]
           :isHab()?[HT,["new","＋","Шинэ хүсэлт",0],["mine","☰","Миний хүсэлт",0],ME]
@@ -551,6 +569,7 @@ function render(){
   if(S.user.mustChange) return renderPinChange(m,true);
   if(S.pinChange) return renderPinChange(m,false);
   if(S.uedit) return renderUserEdit(m);
+  if(S.tab==="letter") return renderLetters(m);
   if(S.tab==="me") return renderMy(m);
   if(S.tab==="people") return renderPeople(m);
   if(S.tab==="kitchen") return renderKitchen(m);
@@ -1668,6 +1687,177 @@ document.addEventListener("submit",async ev=>{ if(ev.target.id!=="mealForm") ret
     result(true,`${MEAL_IC[type]} Мэдэгдэл очлоо!`,`«${menu}» бэлэн боллоо гэж бүх хүнд мэдэгдлээ. Баярлалаа, тогооч оо! 💛`); }
   catch(err){ b.disabled=false; b.textContent="🍲 Хоол болсон!"; result(false,"Илгээж чадсангүй",err instanceof NetErr?"Интернет холболт алга байна. Холболтоо шалгаад дахин дарна уу.":err.message); } });
 
+const {renderLetters,canLetter}=(()=>{
+const ORG={name:"\"ААСГАЛДАЙ\" ХХК",lines:["Улаанбаатар хот, Баянзүрх дүүрэг,","5-р хороо, 72/30","Утас: 99004998, 88189305","И-мэйл: aasgaldai@gmail.com"]};
+const LCDN="https:"+"/"+"/cdn.jsdelivr.net/npm/";
+function lLoadJS(u){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=u; s.onload=res; s.onerror=()=>rej(new Error("Интернэтээс сан ачаалж чадсангүй. Дахин оролдоно уу.")); document.head.appendChild(s); }); }
+async function needPdf(){ if(!window.pdfMake||!window.pdfMake.vfs){ await lLoadJS(LCDN+"pdfmake@0.2.10/build/pdfmake.min.js"); await lLoadJS(LCDN+"pdfmake@0.2.10/build/vfs_fonts.js"); } return window.pdfMake; }
+async function needDocx(){ if(!window.docx) await lLoadJS(LCDN+"docx@8.5.0/build/index.umd.js"); return window.docx; }
+const canLetter=()=>!!S.user&&["Нягтлан","Админ","Захирал"].includes(S.user.role);
+const lDots=d=>String(d||"").replace(/-/g,".");
+const logoSrc=()=>{ const i=document.querySelector("img.logo"); return i?i.src:""; };
+function lParas(body){ return String(body||"").replace(/\r/g,"").split(/\n/).map(x=>x.trim()).filter(x=>x); }
+function lRuns(t){ const out=[]; String(t).split(/(\*\*[^*]+\*\*)/).forEach(p=>{ if(!p) return; if(/^\*\*[^*]+\*\*$/.test(p)) out.push({t:p.slice(2,-2),b:true}); else out.push({t:p,b:false}); }); return out; }
+function lRef(l){ return (l.refDate||l.refNo)?`танай ${lDots(l.refDate)||"________"} -ны № ${l.refNo||"________"} -т`:"танай ____________ -ны № ____________ -т"; }
+function dataUrlBytes(u){ const b=atob(u.split(",")[1]||""); const a=new Uint8Array(b.length); for(let i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+
+async function lStamp(){ if(S.L.stampData!==undefined) return S.L.stampData; const r=await api("letterStamp"); S.L.stampData=r.data||""; return S.L.stampData; }
+
+function letterHTML(l,stamp){
+  const runs=p=>lRuns(p).map(r=>r.b?`<b>${esc(r.t)}</b>`:esc(r.t)).join("");
+  return `<div class="a4"><div class="a4in">
+   <div class="a4top"><div class="a4org"><img src="${logoSrc()}" alt=""><b>${esc(ORG.name)}</b>${ORG.lines.map(x=>`<span>${esc(x)}</span>`).join("")}
+     <div class="a4no">Огноо&nbsp; ${esc(lDots(l.date))}<span style="display:inline-block;width:46px"></span>№ ${esc(l.no||"___/__")}</div></div>
+    <div class="a4to"><i class="cn"></i><div>${esc(l.to||"Хаана")}</div></div></div>
+   <div class="a4ref">${esc(lRef(l))}</div>
+   <div class="a4sub"><i class="cn"></i><div>${esc(l.title||"Гарчиг")}</div></div>
+   <div class="a4body">${lParas(l.body).map(p=>`<p>${runs(p)}</p>`).join("")||`<p class="muted">Агуулга…</p>`}</div>
+   <p class="a4resp">Хүндэтгэсэн,</p>
+   <div class="a4sign"><span>${esc(l.signTitle||"")},</span><span class="st">${stamp?`<img src="${stamp}" alt="">`:""}</span><span>${esc(l.signName||"")}</span></div>
+  </div></div>`;
+}
+
+async function letterPdf(l,stamp){
+  const pm=await needPdf(), mm=x=>x*72/25.4;
+  const corners=w=>({canvas:[{type:"polyline",lineWidth:.8,points:[{x:0,y:7},{x:0,y:0},{x:7,y:0}]},{type:"polyline",lineWidth:.8,points:[{x:w-7,y:0},{x:w,y:0},{x:w,y:7}]}]});
+  const para=p=>({text:lRuns(p).map(r=>({text:r.t,bold:r.b})),alignment:"justify",leadingIndent:mm(12.5),margin:[0,0,0,7]});
+  const content=[
+    {columns:[
+      {width:mm(78),stack:[{image:logoSrc(),fit:[mm(17),mm(17)],alignment:"center"},{text:ORG.name,bold:true,alignment:"center",fontSize:12,margin:[0,3,0,1]},{text:ORG.lines.join("\n"),alignment:"center",fontSize:9.5,lineHeight:1.15},
+        {text:[`Огноо  ${lDots(l.date)}`,{text:"              "},`№ ${l.no}`],fontSize:10.5,margin:[0,mm(6),0,0],alignment:"center"}]},
+      {width:"*",text:""},
+      {width:mm(72),margin:[0,mm(20),0,0],stack:[corners(mm(72)),{text:l.to,alignment:"center",fontSize:11.5,margin:[mm(3),1,mm(3),0]}]}]},
+    {text:lRef(l),fontSize:10.5,margin:[0,mm(3),0,0]},
+    {columns:[{width:mm(95),stack:[corners(mm(95)),{text:l.title,alignment:"center",margin:[mm(4),2,mm(4),0]}]},{width:"*",text:""}],margin:[0,mm(9),0,mm(8)]},
+    ...lParas(l.body).map(para),
+    {text:"Хүндэтгэсэн,",margin:[mm(12.5),mm(7),0,0]},
+    {columns:[{width:"auto",text:(l.signTitle||"")+",",margin:[mm(18),mm(15),0,0]},{width:"*",stack:[stamp?{image:stamp,width:mm(40),alignment:"center"}:{text:" ",margin:[0,mm(15),0,0]}]},{width:"auto",text:l.signName||"",margin:[0,mm(15),mm(4),0]}],margin:[0,mm(2),0,0]}
+  ];
+  const dd={pageSize:"A4",pageMargins:[mm(25),mm(15),mm(15),mm(18)],content,defaultStyle:{font:"Roboto",fontSize:11.5,lineHeight:1.2},info:{title:"Албан бичиг "+l.no,author:"Аасгалдай ХХК"}};
+  return await new Promise(res=>pm.createPdf(dd).getBlob(res));
+}
+
+async function letterDocx(l,stamp){
+  const D=await needDocx(), tw=x=>Math.round(x*56.7), A="Arial", T="Times New Roman";
+  const none={style:D.BorderStyle.NONE,size:0,color:"FFFFFF"}, nb={top:none,bottom:none,left:none,right:none,insideHorizontal:none,insideVertical:none};
+  const cb={top:none,bottom:none,left:none,right:none};
+  const P=(text,o={})=>new D.Paragraph({alignment:o.al,spacing:{after:o.after||0,before:o.before||0,line:o.line},indent:o.indent,tabStops:o.tabs,children:(Array.isArray(text)?text:[text]).map(t=>typeof t==="string"?new D.TextRun({text:t,font:o.font||A,size:o.size||23,bold:o.bold}):t)});
+  const logo=new D.ImageRun({data:dataUrlBytes(logoSrc()),transformation:{width:64,height:64}});
+  const left=[new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[logo]}),P(ORG.name,{al:D.AlignmentType.CENTER,font:T,size:24,bold:true,before:60}),...ORG.lines.map(x=>P(x,{al:D.AlignmentType.CENTER,font:T,size:20})),
+    P(`Огноо  ${lDots(l.date)}            № ${l.no}`,{al:D.AlignmentType.CENTER,font:T,size:21,before:280})];
+  const right=[P(" ",{before:tw(18)}),P(["┌",new D.TextRun({text:"\t┐",font:A,size:23})],{tabs:[{type:D.TabStopType.RIGHT,position:tw(68)}]}),...String(l.to).split(/\n/).map(x=>P(x,{al:D.AlignmentType.CENTER}))];
+  const head=new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(80),tw(18),tw(72)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
+    new D.TableCell({width:{size:tw(80),type:D.WidthType.DXA},borders:cb,children:left}),new D.TableCell({width:{size:tw(18),type:D.WidthType.DXA},borders:cb,children:[P("")]}),new D.TableCell({width:{size:tw(72),type:D.WidthType.DXA},borders:cb,children:right})]})]});
+  const body=lParas(l.body).map(p=>new D.Paragraph({alignment:D.AlignmentType.JUSTIFIED,indent:{firstLine:tw(12.5)},spacing:{after:140,line:276},children:lRuns(p).map(r=>new D.TextRun({text:r.t,bold:r.b,font:A,size:23}))}));
+  const st=stamp?[new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[new D.ImageRun({data:dataUrlBytes(stamp),transformation:{width:150,height:Math.round(150*0.865)}})]})]:[P("")];
+  const sign=new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(72),tw(52),tw(46)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
+    new D.TableCell({width:{size:tw(72),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:[P((l.signTitle||"")+",",{indent:{left:tw(16)}})]}),
+    new D.TableCell({width:{size:tw(52),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:st}),
+    new D.TableCell({width:{size:tw(46),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:[P(l.signName||"",{al:D.AlignmentType.RIGHT})]})]})]});
+  const doc=new D.Document({creator:"Аасгалдай ХХК",title:"Албан бичиг "+l.no,sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:tw(15),bottom:tw(18),left:tw(25),right:tw(15)}}},children:[
+    head,P(lRef(l),{font:T,size:21,before:160}),
+    P(["┌",new D.TextRun({text:"\t┐",font:A,size:23})],{before:tw(8),tabs:[{type:D.TabStopType.RIGHT,position:tw(95)}]}),
+    P(l.title,{al:D.AlignmentType.CENTER,indent:{right:tw(170-25-15-95)},after:tw(7)}),
+    ...body,P("Хүндэтгэсэн,",{indent:{left:tw(12.5)},before:300}),sign]}]});
+  return await D.Packer.toBlob(doc);
+}
+
+async function saveOrShare(blob,name){
+  try{ const f=new File([blob],name,{type:blob.type}); if(/iPhone|iPad|Android/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:name}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000);
+}
+
+function lFormVals(){ const g=id=>{ const e=$("#"+id); return e?e.value:""; }; return {to:g("l_to"),title:g("l_title"),body:g("l_body"),date:g("l_date"),refDate:g("l_rdate"),refNo:g("l_rno"),signTitle:g("l_stitle"),signName:g("l_sname")}; }
+function lScale(){ document.querySelectorAll(".a4wrap").forEach(w=>{ const a=w.querySelector(".a4"); if(!a) return; const k=Math.min(1,w.clientWidth/794); a.style.transform=`scale(${k})`; w.style.height=(1123*k)+"px"; }); }
+addEventListener("resize",lScale);
+
+function renderLetters(m){
+  S.L=S.L||{view:"list"};
+  const L=S.L;
+  if(!L.data){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; api("letters").then(r=>{ L.data=r; render(); }).catch(e=>{ m.innerHTML=`<div class="card empty">${esc(e.message)}</div>`; }); return; }
+  const D=L.data, cfg=D.cfg;
+  if(L.view==="cfg"){
+    m.innerHTML=`<button class="big" data-lgo="list">← Буцах</button>
+     <form class="card form" id="lcfgForm" novalidate><div style="font-weight:600;font-size:17px">Албан бичгийн тохиргоо</div>
+      <label class="f">Гарын үсэг зурах албан тушаал<input id="lc_title" value="${esc(cfg.signTitle)}"></label>
+      <label class="f">Нэр<input id="lc_name" value="${esc(cfg.signName)}"></label>
+      <label class="f">Энэ оны дараагийн дугаар<input id="lc_start" inputmode="numeric" placeholder="${esc(D.next.split("/")[0])}"><span class="small muted">Хоосон орхивол автоматаар үргэлжилнэ. Одоо: ${esc(D.next)}</span></label>
+      <label class="f">Тамга, гарын үсгийн зураг (PNG, ил тод фонтой)<input id="lc_stamp" type="file" accept="image/png"></label>
+      <div class="stampbox">${cfg.hasStamp?`<img id="lc_prev" alt="Тамга" src="${L.stampData||""}">`:`<span class="small muted">Тамга оруулаагүй байна</span>`}</div>
+      <div id="lcErr" class="banner" hidden></div><button class="primary big" type="submit" id="lcSave">Хадгалах</button></form>`;
+    if(cfg.hasStamp&&L.stampData===undefined) lStamp().then(s=>{ const i=$("#lc_prev"); if(i) i.src=s; }).catch(()=>{});
+    return;
+  }
+  if(L.view==="edit"){
+    const d=L.draft;
+    m.innerHTML=`<button class="big" data-lgo="${d.no?"view":"list"}">← Буцах</button>
+     <form class="card form" id="lForm" novalidate><div style="font-weight:600;font-size:17px">${d.no?"Албан бичиг засах · № "+esc(d.no):"Шинэ албан бичиг · № "+esc(D.next)}</div>
+      <label class="f">Хаана (хүлээн авагч)<textarea id="l_to" rows="2" placeholder="Жишээ: ГАШУУН СУХАЙТ АВТО ЗАМ ХХК-д">${esc(d.to)}</textarea></label>
+      <label class="f">Гарчиг<input id="l_title" value="${esc(d.title)}" placeholder="Жишээ: Бетон замын ажил эхлүүлэх тухай"></label>
+      <label class="f">Агуулга<textarea id="l_body" rows="12" placeholder="Догол мөр бүрийг шинэ мөрөөр эхэлнэ. Тодруулах үгийг **ингэж** бичнэ.">${esc(d.body)}</textarea><span class="small muted">Догол мөр бүрийг Enter дарж шинэ мөрөөс эхэлнэ. **од хоёрын дунд** бичсэн үг тод болно.</span></label>
+      <div class="row2"><label class="f">Огноо<input id="l_date" type="date" value="${esc(d.date)}"></label><label class="f">Гарын үсэг<select id="l_stamp"><option value="1" ${d.stamp?"selected":""}>Тамга, гарын үсэгтэй</option><option value="0" ${d.stamp?"":"selected"}>Тамга, гарын үсэггүй</option></select></label></div>
+      <details ${d.refNo||d.refDate?"open":""}><summary class="small">Хариу бичиг бол (танай … -ны № … -т)</summary><div class="row2" style="margin-top:8px"><label class="f">Танай огноо<input id="l_rdate" value="${esc(d.refDate)}" placeholder="2026.07.10"></label><label class="f">Танай дугаар<input id="l_rno" value="${esc(d.refNo)}" placeholder="45/12"></label></div></details>
+      <details><summary class="small">Гарын үсэг зурах хүн</summary><div class="row2" style="margin-top:8px"><label class="f">Албан тушаал<input id="l_stitle" value="${esc(d.signTitle)}"></label><label class="f">Нэр<input id="l_sname" value="${esc(d.signName)}"></label></div></details>
+      <div id="lErr" class="banner" hidden></div>
+      <button class="primary big" type="submit" id="lSave">${d.no?"Хадгалах":"Хадгалж, дугаар олгох"}</button></form>
+     <h3 class="sec">Урьдчилан харах</h3><div class="a4wrap" id="lPrev"></div>`;
+    const upd=()=>{ const v=Object.assign({},d,lFormVals(),{no:d.no||D.next}); const sv=$("#l_stamp").value==="1"; $("#lPrev").innerHTML=letterHTML(v,sv?L.stampData:""); lScale(); };
+    $("#lForm").addEventListener("input",upd); $("#lForm").addEventListener("change",upd);
+    if(cfg.hasStamp&&L.stampData===undefined) lStamp().then(upd).catch(()=>{});
+    upd(); return;
+  }
+  if(L.view==="view"){
+    const l=D.letters.find(x=>x.no===L.cur); if(!l){ L.view="list"; return renderLetters(m); }
+    if(L.useStamp===undefined) L.useStamp=l.stamp&&cfg.hasStamp;
+    const voided=l.status==="Хүчингүй";
+    m.innerHTML=`<button class="big" data-lgo="list">← Бүртгэл</button>
+     <div class="card"><div class="urow"><div class="nm"><b>№ ${esc(l.no)} · ${esc(lDots(l.date))}</b><span class="small muted">${esc(l.to)} · ${esc(l.by)}</span></div>${voided?`<span class="st st-no">Хүчингүй</span>`:""}</div>
+      ${cfg.hasStamp?`<div class="seg" style="margin-top:10px"><button data-lst="1" aria-pressed="${!!L.useStamp}">Тамга, гарын үсэгтэй</button><button data-lst="0" aria-pressed="${!L.useStamp}">Тамга, гарын үсэггүй</button></div>`:`<div class="small muted" style="margin-top:8px">Тамга оруулаагүй тул тамгагүй хувилбар гарна.</div>`}
+      <div class="actions" style="margin-top:10px"><button class="primary" data-ldl="pdf" ${voided?"disabled":""}>⬇ PDF</button><button class="primary" data-ldl="docx" ${voided?"disabled":""}>⬇ Word</button></div>
+      ${voided?"":`<div class="actions" style="margin-top:8px"><button data-ledit>✏️ Засах</button><button class="danger" data-lvoid>${L.voidAsk?"Дахин дарж баталгаажуулна":"Хүчингүй болгох"}</button></div>`}</div>
+     <div class="a4wrap" id="lPrev"></div>`;
+    const show=()=>{ $("#lPrev").innerHTML=letterHTML(l,L.useStamp?L.stampData:""); lScale(); };
+    if(L.useStamp&&L.stampData===undefined) lStamp().then(show).catch(()=>{});
+    show(); return;
+  }
+  let h=`<div class="card urow"><div class="nm"><b>📄 Албан бичиг</b><span class="small muted">Дараагийн дугаар: <b>${esc(D.next)}</b></span></div>${D.canCfg?`<button data-lgo="cfg">⚙ Тохиргоо</button>`:""}</div>
+   <button class="primary big" data-lnew>＋ Шинэ албан бичиг</button>`;
+  if(!cfg.hasStamp&&D.canCfg) h+=`<div class="banner">Тамга, гарын үсгийн зураг оруулаагүй байна. ⚙ Тохиргоо хэсгээс оруулна уу.</div>`;
+  h+=`<h3 class="sec">Бүртгэл · ${D.letters.length}</h3>`;
+  h+=D.letters.length?D.letters.map(l=>`<div class="card urow" data-lopen="${esc(l.no)}" style="cursor:pointer"><div class="nm"><b>№ ${esc(l.no)} · ${esc(l.title)}</b><span class="small muted">${esc(lDots(l.date))} · ${esc(l.to.replace(/\n/g," "))} · ${esc(l.by)}</span></div>${l.status==="Хүчингүй"?`<span class="st st-no">Хүчингүй</span>`:l.stamp?`<span class="st st-paid">Тамгатай</span>`:""}</div>`).join(""):`<div class="card empty">Одоогоор албан бичиг алга</div>`;
+  m.innerHTML=h;
+}
+
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("[data-lgo],[data-lnew],[data-lopen],[data-lst],[data-ldl],[data-ledit],[data-lvoid]"); if(!t||!S.L) return;
+  const L=S.L, D=L.data;
+  if(t.dataset.lgo){ L.view=t.dataset.lgo; L.voidAsk=false; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-lnew")){ L.draft={to:"",title:"",body:"",date:D.today,refDate:"",refNo:"",stamp:D.cfg.hasStamp,signTitle:D.cfg.signTitle,signName:D.cfg.signName}; L.view="edit"; render(); scrollTo(0,0); return; }
+  if(t.dataset.lopen){ L.cur=t.dataset.lopen; L.view="view"; L.useStamp=undefined; L.voidAsk=false; render(); scrollTo(0,0); return; }
+  const l=D.letters.find(x=>x.no===L.cur);
+  if(t.dataset.lst){ L.useStamp=t.dataset.lst==="1"; render(); return; }
+  if(t.hasAttribute("data-ledit")&&l){ L.draft=Object.assign({},l); L.view="edit"; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-lvoid")&&l){ if(!L.voidAsk){ L.voidAsk=true; render(); return; } t.disabled=true; try{ L.data=await api("letterVoid",{no:l.no}); toast("Хүчингүй болголоо"); }catch(e){ toast(e.message); } L.voidAsk=false; render(); return; }
+  if(t.dataset.ldl&&l){ const old=t.textContent; t.disabled=true; t.textContent="Бэлдэж байна…";
+    try{ const st=L.useStamp?await lStamp():""; const name="Албан бичиг "+l.no.replace("/","-")+(t.dataset.ldl==="pdf"?".pdf":".docx");
+      const blob=t.dataset.ldl==="pdf"?await letterPdf(l,st):await letterDocx(l,st); await saveOrShare(blob,name); }
+    catch(e){ toast(e.message||String(e)); }
+    t.disabled=false; t.textContent=old; }
+});
+document.addEventListener("submit",async ev=>{
+  if(!S.L) return;
+  if(ev.target.id==="lForm"){ ev.preventDefault(); const L=S.L, b=$("#lSave"), v=Object.assign({},L.draft,lFormVals(),{stamp:$("#l_stamp").value==="1"});
+    b.disabled=true; try{ const r=await api("letterSave",{l:v}); L.data=r.data; L.cur=r.letter.no; L.view="view"; L.useStamp=r.letter.stamp&&r.data.cfg.hasStamp; toast("№ "+r.letter.no+" хадгалагдлаа"); render(); scrollTo(0,0); }
+    catch(e){ showErr("#lErr",e.message); b.disabled=false; } }
+  if(ev.target.id==="lcfgForm"){ ev.preventDefault(); const L=S.L, b=$("#lcSave"); b.disabled=true;
+    try{ const f=$("#lc_stamp").files[0]; let photo="";
+      if(f){ if(f.size>3e6) throw new Error("Зураг 3MB-аас бага байх ёстой"); photo=await new Promise((res,rej)=>{ const rd=new FileReader(); rd.onload=()=>res(rd.result); rd.onerror=rej; rd.readAsDataURL(f); }); if(photo.indexOf("data:image/png")!==0) throw new Error("PNG зураг сонгоно уу"); }
+      L.data=await api("letterCfg",{cfg:{signTitle:$("#lc_title").value,signName:$("#lc_name").value,startNo:$("#lc_start").value},photo});
+      if(photo) L.stampData=photo; toast("Хадгалагдлаа"); L.view="list"; render(); }
+    catch(e){ showErr("#lcErr",e.message); b.disabled=false; } }
+},true);
+return {renderLetters,canLetter};
+})();
 const cacheKey=()=>"aas_c_"+(S.user?.name||"");
 function saveCache(){ try{ localStorage.setItem(cacheKey(),JSON.stringify({t:Date.now(),reqs:S.reqs,meta:S.meta,dash:S.dash,fuel:S.fuel,myProjects:S.myProjects})); }catch(e){} }
 function readCache(){ try{ const c=JSON.parse(localStorage.getItem(cacheKey())); if(c&&Date.now()-c.t<7*864e5){ S.reqs=c.reqs||[]; S.meta=c.meta||null; S.dash=c.dash||null; S.fuel=c.fuel||null; S.myProjects=c.myProjects||null; return true; } }catch(e){} return false; }
@@ -1821,7 +2011,8 @@ setInterval(()=>{ if(!document.hidden&&S.user) load(true); },60000);
 
 /* ---------- утасны мэдэгдэл ---------- */
 function pushState(){
-  if(MODE!=="http") return "off";
+  if(MODE==="gas") return "off";
+  if(MODE==="demo") return "default";
   const ios=/iPhone|iPad|iPod/.test(navigator.userAgent), standalone=navigator.standalone||matchMedia("(display-mode: standalone)").matches;
   if(ios&&!standalone) return "ios";
   if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)) return "no";
@@ -1850,6 +2041,7 @@ async function pushEnable(ask){
 }
 document.addEventListener("click",async e=>{
   const b=e.target.closest("[data-push],[data-pushtest]"); if(!b) return;
+  if(MODE==="demo"){ toast("🔔 Мэдэгдэл асаалаа (жишээ)"); return; }
   b.disabled=true;
   try{
     if(b.hasAttribute("data-push")){ await pushEnable(true); toast("🔔 Мэдэгдэл асаалаа"); }

@@ -397,6 +397,22 @@ function handle_(b) {
       case 'deleteUser':
         if (!boss && !isHR_(me)) return deny_();
         deleteUser_(me, b.target); return { users: pubUsers_(boss) };
+      case 'letters':
+        if (!isBoss_(me)) return deny_();
+        return letterData_(me);
+      case 'letterSave':
+        if (!isBoss_(me)) return deny_();
+        return { letter: letterSave_(me, b.l), data: letterData_(me) };
+      case 'letterVoid':
+        if (!isBoss_(me)) return deny_();
+        letterVoid_(me, b.no); return letterData_(me);
+      case 'letterStamp':
+        if (!isBoss_(me)) return deny_();
+        var stId = PropertiesService.getScriptProperties().getProperty('LETTER_STAMP');
+        return { data: stId ? fileData_(stId) : '' };
+      case 'letterCfg':
+        if (!isDir_(me) && me.role !== 'Нягтлан') return deny_();
+        letterCfgSave_(b.cfg || {}, b.photo); return letterData_(me);
       case 'fuel': case 'saveEquip': case 'deleteEquip': case 'equipPhoto': case 'addFuel': case 'mark': case 'deleteFuel': case 'fuelPhoto':
         if (!boss) return deny_();
         break;
@@ -1285,6 +1301,73 @@ function lastMeal_(me) {
   if (!list.length) return null;
   var m = list[list.length - 1];
   return { id: m.id, at: m.at, by: m.by, proj: m.proj, type: m.type, menu: m.menu, hasPhoto: !!m.photo };
+}
+
+
+/* ---------- Албан бичиг ----------
+ * Албан бичиг: A Дугаар | B Он (2 орон) | C Бүтэн дугаар (123/26) | D Огноо | E Хаана | F Гарчиг | G Агуулга | H Танай огноо | I Танай дугаар
+ *              J Тамгатай | K Гарын үсэг зурсан албан тушаал | L Нэр | M Гаргасан | N Хугацаа | O Төлөв
+ * Тамга, гарын үсгийн зураг: Script Properties LETTER_STAMP (файлын ID). Тохиргоо: LETTER_CFG.
+ * Эрх: Нягтлан, Админ, Захирал.
+ */
+var LCOLS = ['Дугаар','Он','Бүтэн дугаар','Огноо','Хаана','Гарчиг','Агуулга','Танай огноо','Танай дугаар','Тамгатай','Албан тушаал','Нэр','Гаргасан','Хугацаа','Төлөв'];
+function letterSheet_() { return ensureSheet_('Албан бичиг', LCOLS); }
+function letterCfg_() {
+  var p = PropertiesService.getScriptProperties(), d = { signTitle: 'Гүйцэтгэх захирал', signName: 'Ү. Эрдэнэсанаа', start: {} };
+  try { var c = JSON.parse(p.getProperty('LETTER_CFG') || '{}'); for (var k in c) d[k] = c[k]; } catch (e) {}
+  d.hasStamp = !!p.getProperty('LETTER_STAMP');
+  return d;
+}
+function letterCfgSave_(c, photo) {
+  var p = PropertiesService.getScriptProperties(), cur = letterCfg_();
+  var o = { signTitle: String(c.signTitle || cur.signTitle).trim(), signName: String(c.signName || cur.signName).trim(), start: cur.start || {} };
+  if (c.startNo) { var yy = ymd_(new Date()).slice(2, 4), n = Math.round(num_(c.startNo)); if (n > 0) o.start[yy] = n; }
+  p.setProperty('LETTER_CFG', JSON.stringify(o));
+  if (photo && photo.indexOf('data:image/png') === 0) p.setProperty('LETTER_STAMP', savePhoto_('Аасгалдай тамга', 'tamga.png', photo));
+}
+function letters_() {
+  return rowsOf_(letterSheet_(), 15).map(function (r) {
+    return { n: num_(r[0]), yy: String(r[1]).length === 1 ? '0' + r[1] : String(r[1]), no: String(r[2]), date: ymd_(r[3]), to: String(r[4] || ''), title: String(r[5] || ''), body: String(r[6] || ''),
+             refDate: String(r[7] || ''), refNo: String(r[8] || ''), stamp: r[9] === true || String(r[9]).toUpperCase() === 'TRUE',
+             signTitle: String(r[10] || ''), signName: String(r[11] || ''), by: String(r[12] || ''), at: fmtDate_(r[13]), status: String(r[14] || '') };
+  });
+}
+function letterNext_(yy) {
+  var max = 0; letters_().forEach(function (l) { if (l.yy === yy) max = Math.max(max, l.n); });
+  return Math.max(max + 1, num_((letterCfg_().start || {})[yy]) || 1);
+}
+function letterData_(me) {
+  var t = ymd_(new Date()), yy = t.slice(2, 4);
+  return { today: t, next: letterNext_(yy) + '/' + yy, cfg: letterCfg_(), letters: letters_().reverse().slice(0, 500), canCfg: isDir_(me) || me.role === 'Нягтлан' };
+}
+function letterSave_(me, l) {
+  l = l || {};
+  var to = String(l.to || '').trim(), title = String(l.title || '').trim(), body = String(l.body || '').replace(/\r/g, '').trim(), date = String(l.date || ymd_(new Date()));
+  if (!to || !title || !body) throw new Error('Хаана, гарчиг, агуулгаа бичнэ үү');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Огноо буруу');
+  var cfg = letterCfg_(), stamp = !!l.stamp;
+  if (stamp && !cfg.hasStamp) throw new Error('Тамга, гарын үсгийн зураг оруулаагүй байна');
+  var signTitle = String(l.signTitle || cfg.signTitle).trim(), signName = String(l.signName || cfg.signName).trim();
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = letterSheet_(), v = sh.getDataRange().getValues(), p = date.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
+    if (l.no) {
+      for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(l.no)) {
+        if (String(v[i][14]) === 'Хүчингүй') throw new Error('Хүчингүй болсон албан бичгийг засах боломжгүй');
+        sh.getRange(i + 1, 4, 1, 9).setValues([[d, to, title, body, String(l.refDate || ''), String(l.refNo || ''), stamp, signTitle, signName]]);
+        return letters_().filter(function (x) { return x.no === String(l.no); })[0];
+      }
+      throw new Error('Албан бичиг олдсонгүй');
+    }
+    var yy = date.slice(2, 4), n = letterNext_(yy), no = n + '/' + yy;
+    sh.appendRow([n, "'" + yy, no, d, to, title, body, String(l.refDate || ''), String(l.refNo || ''), stamp, signTitle, signName, me.name, new Date(), '']);
+  } finally { lock.releaseLock(); }
+  return letters_().filter(function (x) { return x.no === no; })[0];
+}
+function letterVoid_(me, no) {
+  var sh = letterSheet_(), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(no)) { sh.getRange(i + 1, 15).setValue('Хүчингүй'); return; }
+  throw new Error('Олдсонгүй');
 }
 
 
