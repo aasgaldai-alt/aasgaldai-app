@@ -1342,8 +1342,8 @@ function letterData_(me) {
 }
 function letterSave_(me, l) {
   l = l || {};
-  var to = String(l.to || '').trim(), title = String(l.title || '').trim(), body = String(l.body || '').replace(/\r/g, '').trim(), date = String(l.date || ymd_(new Date()));
-  if (!to || !title || !body) throw new Error('Хаана, гарчиг, агуулгаа бичнэ үү');
+  var to = String(l.to || '').trim(), title = String(l.title || '').trim(), body = String(l.body || '').replace(/\r/g, '').replace(/\s+$/, '').replace(/^(\s*\n)+/, ''), date = String(l.date || ymd_(new Date()));
+  if (!to || !title || !body.trim()) throw new Error('Хаана, гарчиг, агуулгаа бичнэ үү');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Огноо буруу');
   var cfg = letterCfg_(), stamp = !!l.stamp;
   if (stamp && !cfg.hasStamp) throw new Error('Тамга, гарын үсгийн зураг оруулаагүй байна');
