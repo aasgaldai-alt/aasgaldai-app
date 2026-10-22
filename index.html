@@ -1792,6 +1792,10 @@ async function saveOrShare(blob,name){
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000);
 }
 
+const lDKey=no=>"aas_ldraft_"+(S.user?S.user.name:"")+"_"+(no||"new");
+function lDraftGet(no){ try{ const x=JSON.parse(localStorage.getItem(lDKey(no))||"null"); return x&&(x.to||x.title||String(x.body||"").trim())?x:null; }catch(e){ return null; } }
+function lDraftSet(d){ try{ localStorage.setItem(lDKey(d.no),JSON.stringify(d)); }catch(e){} }
+function lDraftDel(no){ try{ localStorage.removeItem(lDKey(no)); }catch(e){} }
 function lFormVals(){ const g=id=>{ const e=$("#"+id); return e?e.value:""; }; return {to:g("l_to"),title:g("l_title"),body:g("l_body"),date:g("l_date"),refDate:g("l_rdate"),refNo:g("l_rno"),signTitle:g("l_stitle"),signName:g("l_sname")}; }
 function lScale(){ document.querySelectorAll(".a4wrap").forEach(w=>{ const ps=w.querySelectorAll(".a4"); if(!ps.length) return; const k=Math.min(1,w.clientWidth/794); ps.forEach((a,i)=>{ a.style.transform=`scale(${k})`; a.style.top=(i*(1123*k+14))+"px"; }); w.style.height=(ps.length*(1123*k+14)-14)+"px"; }); }
 addEventListener("resize",lScale);
@@ -1815,6 +1819,8 @@ function renderLetters(m){
   }
   if(L.view==="edit"){
     const d=L.draft;
+    if(L.formFor===d&&m.querySelector("#lForm")) return;
+    L.formFor=d;
     m.innerHTML=`<button class="big" data-lgo="${d.no?"view":"list"}">← Буцах</button>
      <form class="card form" id="lForm" novalidate><div style="font-weight:600;font-size:17px">${d.no?"Албан бичиг засах · № "+esc(d.no):"Шинэ албан бичиг · № "+esc(D.next)}</div>
       <label class="f">Хаана (хүлээн авагч)<textarea id="l_to" rows="2" placeholder="Жишээ: ГАШУУН СУХАЙТ АВТО ЗАМ ХХК-д">${esc(d.to)}</textarea></label>
@@ -1831,7 +1837,8 @@ function renderLetters(m){
     m.querySelector("[data-ltab]").addEventListener("click",()=>{ const a=ta.selectionStart, ls=ta.value.lastIndexOf("\n",a-1)+1; ta.setRangeText("\t",ls,ls,"end"); ta.setSelectionRange(a+1,a+1); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); });
     m.querySelector("[data-lbold]").addEventListener("click",()=>{ const a=ta.selectionStart,b=ta.selectionEnd; if(a===b){ toast("Эхлээд тод болгох үгээ сонгоно уу"); return; } const t=ta.value.slice(a,b); ins(/^\*\*[\s\S]*\*\*$/.test(t)?t.slice(2,-2):"**"+t+"**",true); });
     const upd=()=>{ const v=Object.assign({},d,lFormVals(),{no:d.no||D.next}); const sv=$("#l_stamp").value==="1"; lShow($("#lPrev"),v,sv?L.stampData:""); };
-    $("#lForm").addEventListener("input",upd); $("#lForm").addEventListener("change",upd);
+    const sync=()=>{ Object.assign(d,lFormVals(),{stamp:$("#l_stamp").value==="1"}); lDraftSet(d); };
+    $("#lForm").addEventListener("input",()=>{ sync(); upd(); }); $("#lForm").addEventListener("change",()=>{ sync(); upd(); });
     if(cfg.hasStamp&&L.stampData===undefined) lStamp().then(upd).catch(()=>{});
     upd(); return;
   }
@@ -1851,6 +1858,8 @@ function renderLetters(m){
   }
   let h=`<div class="card urow"><div class="nm"><b>📄 Албан бичиг</b><span class="small muted">Дараагийн дугаар: <b>${esc(D.next)}</b></span></div>${D.canCfg?`<button data-lgo="cfg">⚙ Тохиргоо</button>`:""}</div>
    <button class="primary big" data-lnew>＋ Шинэ албан бичиг</button>`;
+  const nd=lDraftGet("");
+  if(nd) h+=`<div class="card urow"><div class="nm"><b>📝 Хадгалаагүй ноорог</b><span class="small muted">${esc(nd.title||nd.to||"Гарчиггүй")}</span></div><button data-lnew>Үргэлжлүүлэх</button><button class="danger" data-ldraftdel>Устгах</button></div>`;
   if(!cfg.hasStamp&&D.canCfg) h+=`<div class="banner">Тамга, гарын үсгийн зураг оруулаагүй байна. ⚙ Тохиргоо хэсгээс оруулна уу.</div>`;
   h+=`<h3 class="sec">Бүртгэл · ${D.letters.length}</h3>`;
   h+=D.letters.length?D.letters.map(l=>`<div class="card urow" data-lopen="${esc(l.no)}" style="cursor:pointer"><div class="nm"><b>№ ${esc(l.no)} · ${esc(l.title)}</b><span class="small muted">${esc(lDots(l.date))} · ${esc(l.to.replace(/\n/g," "))} · ${esc(l.by)}</span></div>${l.status==="Хүчингүй"?`<span class="st st-no">Хүчингүй</span>`:l.stamp?`<span class="st st-paid">Тамгатай</span>`:""}</div>`).join(""):`<div class="card empty">Одоогоор албан бичиг алга</div>`;
@@ -1858,14 +1867,15 @@ function renderLetters(m){
 }
 
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-lgo],[data-lnew],[data-lopen],[data-lst],[data-ldl],[data-ledit],[data-lvoid]"); if(!t||!S.L) return;
+  const t=ev.target.closest("[data-lgo],[data-lnew],[data-lopen],[data-lst],[data-ldl],[data-ledit],[data-lvoid],[data-ldraftdel]"); if(!t||!S.L) return;
   const L=S.L, D=L.data;
   if(t.dataset.lgo){ L.view=t.dataset.lgo; L.voidAsk=false; render(); scrollTo(0,0); return; }
-  if(t.hasAttribute("data-lnew")){ L.draft={to:"",title:"",body:"\t",date:D.today,refDate:"",refNo:"",stamp:D.cfg.hasStamp,signTitle:D.cfg.signTitle,signName:D.cfg.signName}; L.view="edit"; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-ldraftdel")){ lDraftDel(""); toast("Ноорог устгагдлаа"); render(); return; }
+  if(t.hasAttribute("data-lnew")){ const sv=lDraftGet(""); if(sv){ L.draft=Object.assign(sv,{no:""}); L.view="edit"; render(); scrollTo(0,0); return; } L.draft={to:"",title:"",body:"\t",date:D.today,refDate:"",refNo:"",stamp:D.cfg.hasStamp,signTitle:D.cfg.signTitle,signName:D.cfg.signName}; L.view="edit"; render(); scrollTo(0,0); return; }
   if(t.dataset.lopen){ L.cur=t.dataset.lopen; L.view="view"; L.useStamp=undefined; L.voidAsk=false; render(); scrollTo(0,0); return; }
   const l=D.letters.find(x=>x.no===L.cur);
   if(t.dataset.lst){ L.useStamp=t.dataset.lst==="1"; render(); return; }
-  if(t.hasAttribute("data-ledit")&&l){ L.draft=Object.assign({},l); L.view="edit"; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-ledit")&&l){ L.draft=Object.assign({},l,lDraftGet(l.no)||{}); L.view="edit"; render(); scrollTo(0,0); return; }
   if(t.hasAttribute("data-lvoid")&&l){ if(!L.voidAsk){ L.voidAsk=true; render(); return; } t.disabled=true; try{ L.data=await api("letterVoid",{no:l.no}); toast("Хүчингүй болголоо"); }catch(e){ toast(e.message); } L.voidAsk=false; render(); return; }
   if(t.dataset.ldl&&l){ const old=t.textContent; t.disabled=true; t.textContent="Бэлдэж байна…";
     try{ const st=L.useStamp?await lStamp():""; const name="Албан бичиг "+l.no.replace("/","-")+(t.dataset.ldl==="pdf"?".pdf":".docx");
@@ -1876,7 +1886,7 @@ document.addEventListener("click",async ev=>{
 document.addEventListener("submit",async ev=>{
   if(!S.L) return;
   if(ev.target.id==="lForm"){ ev.preventDefault(); const L=S.L, b=$("#lSave"), v=Object.assign({},L.draft,lFormVals(),{stamp:$("#l_stamp").value==="1"});
-    b.disabled=true; try{ const r=await api("letterSave",{l:v}); L.data=r.data; L.cur=r.letter.no; L.view="view"; L.useStamp=r.letter.stamp&&r.data.cfg.hasStamp; toast("№ "+r.letter.no+" хадгалагдлаа"); render(); scrollTo(0,0); }
+    b.disabled=true; try{ const r=await api("letterSave",{l:v}); lDraftDel(v.no||""); L.formFor=null; L.data=r.data; L.cur=r.letter.no; L.view="view"; L.useStamp=r.letter.stamp&&r.data.cfg.hasStamp; toast("№ "+r.letter.no+" хадгалагдлаа"); render(); scrollTo(0,0); }
     catch(e){ showErr("#lErr",e.message); b.disabled=false; } }
   if(ev.target.id==="lcfgForm"){ ev.preventDefault(); const L=S.L, b=$("#lcSave"); b.disabled=true;
     try{ const f=$("#lc_stamp").files[0]; let photo="";
