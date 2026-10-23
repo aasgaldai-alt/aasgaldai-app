@@ -2230,11 +2230,11 @@ function loansBlock(){
     <div class="ln"><span>Ажилчдын урьдчилгааны үлдэгдэл</span><span class="n">${fmt(b("Урьдчилгаа"))}</span></div>
     <div class="ln tot"><span>Банкны зээлийн үлдэгдэл (өр)</span><span class="n neg">${fmt(b("Авсан"))}</span></div>
     <div class="ln sub"><span>Нийт төлсөн хүү, шимтгэл</span><span class="n">${fmt(intr)}</span></div></div>
-    <div class="actions"><button data-lnew="Авсан">＋ Банкны зээл бүртгэх</button><button data-lnew="Олгосон">＋ Олгосон зээл бүртгэх</button></div>
+    <div class="actions"><button data-znew="Авсан">＋ Банкны зээл бүртгэх</button><button data-znew="Олгосон">＋ Олгосон зээл бүртгэх</button></div>
     <div class="small muted" style="margin:4px 2px 8px">Шинээр зээл, урьдчилгаа олгох, банкны зээл төлөхдөө «Шинэ хүсэлт» → «Гүйлгээний төрөл»-өөс сонгоно. Төлсний дараа энд автоматаар орно. Энэ товчоор зөвхөн өмнө нь апп-аас гадуур авсан/олгосон зээлийг бүртгэнэ.</div>`;
   const open=L.filter(l=>l.bal>0).sort((a,c)=>a.type.localeCompare(c.type)), closed=L.filter(l=>l.bal<=0);
   const row=l=>{ const late=l.due&&l.bal>0&&l.due<td, soon=l.due&&l.bal>0&&!late&&l.due<=ymAdd(td.slice(0,7),1)+td.slice(7);
-    return `<button class="card req" data-ldet="${esc(l.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(l.party)}</b><span class="amt">${fmt(l.bal)} ₮</span></div>
+    return `<button class="card req" data-zdet="${esc(l.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(l.party)}</b><span class="amt">${fmt(l.bal)} ₮</span></div>
       <div class="tags"><span class="tag">${TL[l.type]}</span><span class="tag">${l.proj===GEN?"Ерөнхий":esc(l.proj)}</span>${late?`<span class="st st-bad">Хугацаа хэтэрсэн</span>`:soon?`<span class="st st-warn">Хугацаа ойртсон</span>`:""}${l.bal<=0?`<span class="st st-done">Хаагдсан</span>`:""}</div>
       <div class="meta">${esc(l.date)} · ${fmt(l.amount)} ₮${l.due?` · дуусах ${esc(l.due)}`:""}${l.rate?` · сарын ${l.rate}%`:""}${l.type==="Урьдчилгаа"?` · ${l.months} сараар`:""}</div></button>`; };
   h+=open.length?open.map(row).join(""):`<div class="card empty">Нээлттэй зээл алга.</div>`;
@@ -2243,18 +2243,18 @@ function loansBlock(){
 }
 function loanDet(m){
   const l=S.loans?.loans.find(x=>x.id===LZ.det); if(!l){ LZ.det=null; return render(); }
-  m.innerHTML=`<button data-lback>‹ Буцах</button><div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:17px">${esc(l.party)}</b><span class="tag">${TL[l.type]}</span></div>
+  m.innerHTML=`<button data-zback>‹ Буцах</button><div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:17px">${esc(l.party)}</b><span class="tag">${TL[l.type]}</span></div>
     <div class="meta">${l.proj===GEN?"Компанийн ерөнхий":esc(l.proj)} · ${esc(l.date)}${l.due?` · дуусах ${esc(l.due)}`:""}${l.rate?` · сарын хүү ${l.rate}%`:""}${l.type==="Урьдчилгаа"?` · ${l.months} сараар суутгана`:""}</div>
     <div class="gsum"><div><div class="small muted">Анхны дүн</div><b>${fmt(l.amount)}</b></div><div><div class="small muted">${l.type==="Авсан"?"Төлсөн":"Буцаасан"}</div><b>${fmt(l.paid)}</b></div><div><div class="small muted">Үлдэгдэл</div><b class="${l.bal>0?"neg":"pos"}">${fmt(l.bal)}</b></div></div>
     ${l.type==="Авсан"?`<div class="small muted" style="margin-top:6px">Төлсөн хүү, шимтгэл: <b>${fmt(l.interest)} ₮</b> (${l.proj===GEN?"компанийн ерөнхий":esc(l.proj)+" төслийн"} зардалд орсон)</div>`:""}
     ${l.note?`<div class="small muted" style="margin-top:4px">${esc(l.note)}</div>`:""}${l.req?`<div class="small muted">Хүсэлт: ${esc(l.req)} · бүртгэсэн ${esc(l.by)}</div>`:""}
-    <div class="actions" style="margin-top:10px"><button class="primary" data-ltx="${esc(l.id)}">＋ ${l.type==="Авсан"?"Төлбөр бүртгэх":"Эргэн төлөлт бүртгэх"}</button>${isDir()&&!l.txs.length?`<button class="danger" data-ldel="${esc(l.id)}">${LZ.del===l.id?"Дахин дарж устга":"Устгах"}</button>`:""}</div>
+    <div class="actions" style="margin-top:10px"><button class="primary" data-ztx="${esc(l.id)}">＋ ${l.type==="Авсан"?"Төлбөр бүртгэх":"Эргэн төлөлт бүртгэх"}</button>${isDir()&&!l.txs.length?`<button class="danger" data-zdel="${esc(l.id)}">${LZ.del===l.id?"Дахин дарж устга":"Устгах"}</button>`:""}</div>
     ${l.type==="Авсан"?`<div class="small muted" style="margin-top:6px">Банкинд төлөх мөнгийг «Шинэ хүсэлт» → «Зээлийн үндсэн төлбөр» / «Зээлийн хүү, шимтгэл»-ээр гаргавал төлсний дараа энд автоматаар орно.</div>`:""}</div>
-    <h3 class="sec">Гүйлгээ</h3>${l.txs.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Төрөл</th><th>Дүн</th></tr>${l.txs.slice().reverse().map(t=>`<tr><td>${esc(t.date)}<div class="small muted">${esc(t.note||"")}${t.by?" · "+esc(t.by):""}</div></td><td style="text-align:left">${esc(t.type)}</td><td>${fmt(t.amount)}${isDir()?`<div><button class="lnk danger" data-ltxdel="${esc(t.id)}">${LZ.del===t.id?"дахин дар":"устгах"}</button></div>`:""}</td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйлгээ алга.</div>`}`;
+    <h3 class="sec">Гүйлгээ</h3>${l.txs.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Төрөл</th><th>Дүн</th></tr>${l.txs.slice().reverse().map(t=>`<tr><td>${esc(t.date)}<div class="small muted">${esc(t.note||"")}${t.by?" · "+esc(t.by):""}</div></td><td style="text-align:left">${esc(t.type)}</td><td>${fmt(t.amount)}${isDir()?`<div><button class="lnk danger" data-zxdel="${esc(t.id)}">${LZ.del===t.id?"дахин дар":"устгах"}</button></div>`:""}</td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйлгээ алга.</div>`}`;
 }
 function loanForm(m){
   const t=LZ.form.type, P=(S.meta?.projects||[]);
-  m.innerHTML=`<button data-lback>‹ Буцах</button><form class="card form" id="loanForm" style="margin-top:10px">
+  m.innerHTML=`<button data-zback>‹ Буцах</button><form class="card form" id="loanForm" style="margin-top:10px">
     <div style="font-weight:600;font-size:16px">${t==="Авсан"?"Банкны / авсан зээл бүртгэх":"Олгосон зээл бүртгэх"}</div>
     <label class="f">${t==="Авсан"?"Банк, зээлдүүлэгч":"Зээлдэгч (хэнд)"}<input id="l_party" placeholder="${t==="Авсан"?"Хаан банк":"Байгууллага, хүний нэр"}"></label>
     <div class="row2"><label class="f">Дүн, ₮<input id="l_amount" data-money inputmode="numeric"></label><label class="f">Огноо<input id="l_date" type="date" value="${esc(today())}"></label></div>
@@ -2266,7 +2266,7 @@ function loanForm(m){
 }
 function txForm(m){
   const l=S.loans.loans.find(x=>x.id===LZ.tx); const O=TXO[l.type];
-  m.innerHTML=`<button data-lback>‹ Буцах</button><form class="card form" id="txForm" style="margin-top:10px">
+  m.innerHTML=`<button data-zback>‹ Буцах</button><form class="card form" id="txForm" style="margin-top:10px">
     <div style="font-weight:600;font-size:16px">${esc(l.party)} · үлдэгдэл ${fmt(l.bal)} ₮</div>
     <label class="f">Төрөл<select id="t_type">${O.map(o=>`<option>${o}</option>`).join("")}</select></label>
     <div class="row2"><label class="f">Дүн, ₮<input id="t_amount" data-money inputmode="numeric"></label><label class="f">Огноо<input id="t_date" type="date" value="${esc(today())}"></label></div>
@@ -2274,16 +2274,16 @@ function txForm(m){
     <div id="tErr" class="banner" hidden></div><button class="primary big" id="tSave">Бүртгэх</button></form>`;
 }
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-rtv],[data-cy],[data-lnew],[data-ldet],[data-lback],[data-ltx],[data-ldel],[data-ltxdel],[data-setloanlimit],[data-advpost]"); if(!t) return;
+  const t=ev.target.closest("[data-rtv],[data-cy],[data-znew],[data-zdet],[data-zback],[data-ztx],[data-zdel],[data-zxdel],[data-setloanlimit],[data-advpost]"); if(!t) return;
   const d=t.dataset; ev.stopPropagation(); ev.preventDefault();
   if(d.rtv!=null){ S.draft.rtype=d.rtv; render(); return; }
   if(d.cy){ S.cy=d.cy; render(); return; }
-  if(d.lnew){ LZ.form={type:d.lnew}; render(); scrollTo(0,0); return; }
-  if(d.ldet){ LZ.det=d.ldet; LZ.del=null; render(); scrollTo(0,0); return; }
-  if(t.hasAttribute("data-lback")){ if(LZ.form||LZ.tx){ LZ.form=null; LZ.tx=null; } else LZ.det=null; render(); return; }
-  if(d.ltx){ LZ.tx=d.ltx; render(); scrollTo(0,0); return; }
-  if(d.ldel||d.ltxdel){ const id=d.ldel||d.ltxdel; if(LZ.del!==id){ LZ.del=id; render(); return; } t.disabled=true;
-    try{ S.loans=await api("loanDel",{id,tx:!!d.ltxdel}); LZ.del=null; if(d.ldel) LZ.det=null; S.dash=null; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(d.znew){ LZ.form={type:d.znew}; render(); scrollTo(0,0); return; }
+  if(d.zdet){ LZ.det=d.zdet; LZ.del=null; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-zback")){ if(LZ.form||LZ.tx){ LZ.form=null; LZ.tx=null; } else LZ.det=null; render(); return; }
+  if(d.ztx){ LZ.tx=d.ztx; render(); scrollTo(0,0); return; }
+  if(d.zdel||d.zxdel){ const id=d.zdel||d.zxdel; if(LZ.del!==id){ LZ.del=id; render(); return; } t.disabled=true;
+    try{ S.loans=await api("loanDel",{id,tx:!!d.zxdel}); LZ.del=null; if(d.zdel) LZ.det=null; S.dash=null; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
   if(t.hasAttribute("data-setloanlimit")){ const v=+($("#loanLimitIn").value.replace(/\D/g,""))||0; if(v<100000){ toast("Дүнгээ зөв оруулна уу"); return; } t.disabled=true; try{ S.meta=await api("setLoanLimit",{limit:v}); toast("Хадгалагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
   if(t.hasAttribute("data-advpost")){ const ym=S.pm, items=(S.ppl.adv||[]).filter(l=>l.bal>0||l.txs.some(x=>x.ym===ym)).map(l=>{ const i=document.querySelector(`[data-advin="${l.id}"]`); return i?{loan:l.id,amount:+i.value.replace(/\D/g,"")||0}:null; }).filter(Boolean);
     if(!items.length){ toast("Суутгах урьдчилгаа алга"); return; } t.disabled=true;
