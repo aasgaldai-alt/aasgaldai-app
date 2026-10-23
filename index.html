@@ -528,7 +528,7 @@ async function renderPdf(inner,name,landscape){
   const P=await loadLib(LIB_PDF,"html2pdf");
   const host=document.createElement("div"); host.style.cssText="position:fixed;left:-10000px;top:0;background:#fff";
   host.innerHTML=`<style>${PDF_CSS}</style><div class="rp" style="width:${landscape?1000:720}px">${inner}</div>`; document.body.appendChild(host);
-  try{ const blob=await P().set({margin:[10,8,12,8],image:{type:"jpeg",quality:0.95},html2canvas:{scale:2,backgroundColor:"#ffffff"},jsPDF:{unit:"mm",format:"a4",orientation:landscape?"landscape":"portrait"},pagebreak:{mode:["css","legacy"],avoid:"tr"}}).from(host.querySelector(".rp")).outputPdf("blob");
+  try{ const blob=await P().set({margin:[10,8,12,8],image:{type:"jpeg",quality:0.95},html2canvas:{scale:2,backgroundColor:"#ffffff",scrollX:0,scrollY:0},jsPDF:{unit:"mm",format:"a4",orientation:landscape?"landscape":"portrait"},pagebreak:{mode:["css","legacy"],avoid:"tr"}}).from(host.querySelector(".rp")).outputPdf("blob");
     await saveBlob(name,blob); } finally { host.remove(); }
 }
 const pdfHead=(title,sub)=>`<div class="hd"><img src="${logoSrc()}" alt=""><div><h1>${esc(title)}</h1><div class="sub">${esc(sub)}</div></div></div>`;
@@ -2087,7 +2087,7 @@ function renderSched(m){
     ${sm?`<div class="gsum"><div><div class="small muted">Төлөвлөгөөгөөр</div><b>${pc(sm.plan)}</b></div><div><div class="small muted">Биелэлт</div><b class="t-${sm.st}">${pc(sm.act)}</b></div><div><div class="small muted">Зөрүү</div><b class="t-${sm.st}">${sm.diff>=0?"+":""}${pc(sm.diff)}</b></div></div>
       <div class="gbar"><div class="gp" style="width:${Math.min(sm.plan,100)}%"></div><div class="ga g-${sm.st}" style="width:${Math.min(sm.act,100)}%"></div></div>`:`<div class="small muted" style="margin-top:8px">Энэ төсөлд ажлын график хараахан оруулаагүй байна.</div>`}
     ${ed?`<div class="actions" style="margin-top:10px"><button data-schnew>＋ Ажил нэмэх</button>${items.length?`<button class="primary" data-schday>✍ Өдрийн гүйцэтгэл</button>`:""}</div>`:""}</div>`;
-  if(items.length) h+=`<h3 class="sec">Календарчилсан график</h3>${gantt(items,logs,D.today)}${legend()}
+  if(items.length) h+=`<h3 class="sec">Календарчилсан график</h3>${gantt(items,logs,D.today)}${legend()}${expCard(p)}
     <h3 class="sec">Ажлын явц</h3>`+items.map(it=>{ const x=stat(it,logs,D.today);
       return `<button class="card req" data-schitem="${esc(it.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(it.name)}</b><span class="st st-${x.st[0]}">${x.st[1]}</span></div>
         <div class="meta">${esc(it.start)} — ${esc(it.end)} · ${x.dur} өдөр · ${nf(x.done)} / ${nf(it.qty)} ${esc(it.unit)}</div>
@@ -2136,8 +2136,10 @@ function itemView(m){
     <h3 class="sec">Өдөр бүрийн гүйцэтгэл</h3>${rows.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Хийсэн</th><th>Нийт</th></tr>${rows.map(l=>`<tr><td>${esc(l.date)}${l.note?`<div class="small muted">${esc(l.note)}</div>`:""}</td><td>${nf(l.qty)}</td><td>${nf(l.cum)} <span class="small muted">${pc(it.qty?l.cum/it.qty*100:0)}</span></td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйцэтгэл бүртгэгдээгүй байна.</div>`}`;
 }
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-schproj],[data-schnew],[data-schday],[data-schitem],[data-schedit],[data-schback],[data-schdel]"); if(!t||S.tab!=="sched") return;
+  const t=ev.target.closest("[data-schproj],[data-schnew],[data-schday],[data-schitem],[data-schedit],[data-schback],[data-schdel],[data-schx]"); if(!t||S.tab!=="sched") return;
   const d=t.dataset; ev.stopPropagation();
+  if(d.schx){ const nm=xNames(SC.proj); nm.dir=($("#sx_dir")?.value||nm.dir).trim(); nm.eng=($("#sx_eng")?.value||nm.eng).trim(); try{ localStorage.setItem("aas_sx_"+SC.proj,JSON.stringify(nm)); }catch(e){}
+    return runExport(t,()=>d.schx==="pdf"?schedPdf(SC.proj,nm):schedXlsx(SC.proj,nm)); }
   if(d.schproj!=null){ SC.proj=d.schproj; render(); return; }
   if(t.hasAttribute("data-schnew")){ SC.edit={proj:SC.proj,start:SC.data.today}; SC.view="edit"; SC.delAsk=null; render(); scrollTo(0,0); return; }
   if(t.hasAttribute("data-schday")){ SC.view="day"; SC.date=SC.data.today; render(); scrollTo(0,0); return; }
@@ -2165,6 +2167,64 @@ document.addEventListener("submit",async ev=>{
     try{ SC.data=await api("schedDay",{proj:SC.proj,date,entries}); SC.view="chart"; toast("Гүйцэтгэл хадгалагдлаа"); render(); scrollTo(0,0); }catch(e){ showErr("#sdErr",e.message); b.disabled=false; }
   }
 },true);
+function xNames(code){ const p=SC.data.projects.find(x=>x.code===code)||{}; let o={}; try{ o=JSON.parse(localStorage.getItem("aas_sx_"+code)||"{}"); }catch(e){}
+  return {dir:o.dir||"Ү.Эрдэнэсанаа",eng:o.eng||p.editor||"Б.Мөнх-Эрдэнэ"}; }
+function expCard(p){ const nm=xNames(p.code);
+  return `<div class="card form" style="margin-top:12px"><div style="font-weight:600">⬇ Графикийг татах</div>
+    <div class="row2"><label class="f">Батлах: захирал<input id="sx_dir" value="${esc(nm.dir)}"></label><label class="f">Гүйцэтгэсэн инженер<input id="sx_eng" value="${esc(nm.eng)}"></label></div>
+    <div class="small muted">Тайланд «${esc(dayWord(SC.data.today))} өдрийн байдлаар» гэж огноо тавигдана.</div>
+    <div class="actions"><button data-schx="xlsx">⬇ Excel</button><button data-schx="pdf">⬇ PDF</button></div></div>`; }
+function dayWord(t){ const d=+t.slice(8,10), y=t.slice(0,4), m=+t.slice(5,7); const suf=[1,4,9].includes(d%10)?"ний":"ны"; return `${y} оны ${m}-р сарын ${d}-${suf}`; }
+function xData(code){ const D=SC.data, p=D.projects.find(x=>x.code===code), items=D.items.filter(i=>i.proj===code).sort((a,b)=>a.ord-b.ord||a.start.localeCompare(b.start)), logs=D.logs.filter(l=>l.proj===code);
+  return {D,p,items,logs,sm:projSum(items,logs,D.today),rows:items.map(it=>({it,x:stat(it,logs,D.today)}))}; }
+async function schedXlsx(code,nm){
+  const X=await loadLib(LIB_XLSX,"XLSX"), {D,p,items,logs,sm,rows}=xData(code);
+  if(!items.length) throw new Error("Графикт ажил алга");
+  let a=Math.min(...items.map(i=>dn(i.start))), b=Math.max(...items.map(i=>dn(i.end))); for(const l of logs){ a=Math.min(a,dn(l.date)); b=Math.max(b,dn(l.date)); }
+  const days=[]; for(let d=a;d<=b;d++) days.push(ds(d));
+  const H=["№","Ажлын нэр","Нэгж","Тоо хэмжээ","Хийсэн","Үлдсэн","Биелэлт %","Төлөвлөгөө %","Зөрүү %","Төлөв","Эхлэх","Дуусах","Өдөр"], N=H.length;
+  const A=[["","","","","","","","","","БАТЛАВ"],["","","","","","","","","",`Аасгалдай ХХК-ийн захирал ____________ ${nm.dir}`],[],
+    [`${p.name||p.code} — ажлын календарчилсан график`],[`${dayWord(D.today)} өдрийн байдлаар`],
+    [sm?`Төлөвлөгөөгөөр ${Math.round(sm.plan)}%, биелэлт ${Math.round(sm.act)}%, зөрүү ${sm.diff>=0?"+":""}${Math.round(sm.diff)}%`:""],[],
+    [...H,...days.map(d=>d.slice(5).replace("-","."))]];
+  const hr=A.length-1;
+  rows.forEach(({it,x},i)=>{ const byDay={}; logs.filter(l=>l.item===it.id).forEach(l=>byDay[l.date]=(byDay[l.date]||0)+(+l.qty||0));
+    A.push([i+1,it.name,it.unit,+it.qty,+x.done,Math.max(0,it.qty-x.done),Math.round(x.act*10)/10,Math.round(x.plan*10)/10,Math.round((x.act-x.plan)*10)/10,x.st[1],it.start,it.end,x.dur,
+      ...days.map(d=>byDay[d]?byDay[d]:(d>=it.start&&d<=it.end?"·":""))]); });
+  A.push([]); if(sm) A.push(["","Төслийн нийт (хугацаагаар жигнэсэн)","","","","",Math.round(sm.act*10)/10,Math.round(sm.plan*10)/10,Math.round(sm.diff*10)/10]);
+  A.push([]); A.push(["","Тайлбар: огнооны баганад тухайн өдөр хийсэн тоо хэмжээ, «·» = төлөвлөсөн хугацаанд ажил бүртгэгдээгүй өдөр."]); A.push([]);
+  A.push(["","",`Гүйцэтгэсэн: Инженер ____________ ${nm.eng}`]);
+  const ws=X.utils.aoa_to_sheet(A);
+  ws["!cols"]=[{wch:4},{wch:34},{wch:6},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:8},{wch:18},{wch:11},{wch:11},{wch:6},...days.map(()=>({wch:6}))];
+  ws["!freeze"]={xSplit:2,ySplit:hr+1}; ws["!views"]=[{state:"frozen",xSplit:2,ySplit:hr+1}];
+  ws["!merges"]=[{s:{r:3,c:0},e:{r:3,c:8}},{s:{r:4,c:0},e:{r:4,c:8}},{s:{r:5,c:0},e:{r:5,c:8}}];
+  for(let r=hr+1;r<hr+1+rows.length;r++) for(const c of [3,4,5]){ const ad=X.utils.encode_cell({r,c}); if(ws[ad]) ws[ad].z="#,##0.##"; }
+  const wb=X.utils.book_new(); X.utils.book_append_sheet(wb,ws,"График");
+  const L=[["Огноо","Ажил","Нэгж","Хийсэн","Нийт хийсэн","Биелэлт %","Тэмдэглэл","Оруулсан"]];
+  for(const it of items){ let c=0; logs.filter(l=>l.item===it.id).sort((x,y)=>x.date.localeCompare(y.date)).forEach(l=>{ c+=+l.qty||0; L.push([l.date,it.name,it.unit,+l.qty,c,it.qty?Math.round(c/it.qty*1000)/10:0,l.note,l.by]); }); }
+  const wl=X.utils.aoa_to_sheet(L); wl["!cols"]=[{wch:11},{wch:34},{wch:6},{wch:10},{wch:12},{wch:10},{wch:24},{wch:14}]; X.utils.book_append_sheet(wb,wl,"Өдрийн гүйцэтгэл");
+  const out=X.write(wb,{bookType:"xlsx",type:"array"});
+  await saveBlob(fileSafe(`Аасгалдай_${code}_график_${D.today}.xlsx`),new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+}
+async function schedPdf(code,nm){
+  const {D,p,items,logs,sm,rows}=xData(code); if(!items.length) throw new Error("Графикт ажил алга");
+  let a=Math.min(...items.map(i=>dn(i.start))), b=Math.max(...items.map(i=>dn(i.end))); for(const l of logs){ a=Math.min(a,dn(l.date)); b=Math.max(b,dn(l.date)); }
+  const n=b-a+1, TW=470, px=d=>(d-a)/n*TW, t=dn(D.today), C={ok:"#2f8a14",warn:"#c98a00",bad:"#c2330f",done:"#1546c9",idle:"#8a93a6"};
+  let mh=""; for(let d=a;d<=b;d++){ const s=ds(d); if(d===a||s.slice(8)==="01") mh+=`<div style="position:absolute;left:${px(d)}px;top:0;font-size:9px;font-weight:600;border-left:1px solid #b9c3d6;padding-left:2px;white-space:nowrap">${MON[+s.slice(5,7)-1]}</div>`;
+    if(s.slice(8)==="01"||((n<=62||(+s.slice(8))%5===0)&&+s.slice(8)<=(n<=62?31:27))) mh+=`<div style="position:absolute;left:${px(d)}px;top:13px;width:${TW/n}px;text-align:center;font-size:8px;color:#5a6478">${+s.slice(8)}</div>`; }
+  const tl=t>=a&&t<=b?`<div style="position:absolute;left:${px(t)+TW/n/2}px;top:0;bottom:0;width:1.5px;background:#c2330f"></div>`:"";
+  const bar=({it,x})=>{ const l=px(dn(it.start)), w=Math.max(2,px(dn(it.end)+1)-l), marks=logs.filter(q=>q.item===it.id&&+q.qty>0).map(q=>`<div style="position:absolute;left:${px(dn(q.date))+TW/n/2-2}px;bottom:2px;width:4px;height:4px;border-radius:2px;background:#141b2b"></div>`).join("");
+    return `<div style="position:relative;height:30px;width:${TW}px">${tl}<div style="position:absolute;left:${l}px;width:${w}px;top:6px;height:14px;border:1px solid #b9c3d6;border-radius:3px;background:#eef2f9;overflow:hidden"><div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(x.plan,100)}%;background:#cdd5e3"></div><div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(x.act,100)}%;background:${C[x.st[0]]};opacity:.85"></div><div style="position:absolute;left:3px;top:0;font-size:9px;font-weight:700;line-height:14px">${Math.round(x.act)}%</div></div>${marks}</div>`; };
+  const sign=(role,name)=>`<div style="font-size:12px">${role} <span style="display:inline-block;width:140px;border-bottom:1px solid #141b2b;margin:0 8px"></span> ${esc(name)}</div>`;
+  let h=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:10px"><div class="hd" style="border:0;margin:0;padding:0"><img src="${logoSrc()}" alt=""><div><h1>${esc(p.name||p.code)}</h1><div class="sub">Ажлын календарчилсан график · ${esc(code)}</div></div></div>
+    <div style="text-align:left"><div style="font-weight:700;font-size:12px;margin-bottom:6px">БАТЛАВ</div>${sign("Аасгалдай ХХК-ийн захирал",nm.dir)}</div></div>
+    <div style="border-top:3px solid #1546c9;padding-top:8px;display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${esc(dayWord(D.today))} өдрийн байдлаар</b>${sm?`<span style="font-size:12px">Төлөвлөгөөгөөр <b>${Math.round(sm.plan)}%</b> · Биелэлт <b style="color:${C[sm.st]}">${Math.round(sm.act)}%</b> · Зөрүү <b style="color:${C[sm.st]}">${sm.diff>=0?"+":""}${Math.round(sm.diff)}%</b></span>`:""}</div>
+    <table class="sm" style="margin-top:8px"><tr><th>№</th><th>Ажлын нэр</th><th class="n">Тоо хэмжээ</th><th class="n">Хийсэн</th><th>Хугацаа</th><th style="padding:0"><div style="position:relative;height:26px;width:${TW}px">${mh}</div></th></tr>
+    ${rows.map(({it,x},i)=>`<tr><td>${i+1}</td><td><b>${esc(it.name)}</b><div style="font-size:9px;color:${C[x.st[0]]}">${x.st[1]} · төлөвлөгөө ${Math.round(x.plan)}%</div></td><td class="n">${nf(it.qty)} ${esc(it.unit)}</td><td class="n">${nf(x.done)}</td><td style="font-size:9px;white-space:nowrap">${it.start.slice(5).replace("-",".")}–${it.end.slice(5).replace("-",".")}<br>${x.dur} өдөр</td><td style="padding:0">${bar({it,x})}</td></tr>`).join("")}</table>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:9px;color:#5a6478;margin:6px 0 18px">${[["ok","Хэвийн"],["warn","Бага зэрэг хоцорсон"],["bad","Хоцорсон"],["done","Дууссан"]].map(([k,l])=>`<span><i style="display:inline-block;width:12px;height:8px;background:${C[k]};margin-right:4px"></i>${l}</span>`).join("")}<span><i style="display:inline-block;width:12px;height:8px;background:#cdd5e3;margin-right:4px"></i>өнөөдрийн төлөвлөгөө</span><span>● ажил хийсэн өдөр</span><span style="color:#c2330f">| өнөөдөр</span></div>
+    <div style="display:flex;justify-content:flex-end;page-break-inside:avoid">${sign("Гүйцэтгэсэн: Инженер",nm.eng)}</div>`;
+  await renderPdf(h,fileSafe(`Аасгалдай_${code}_график_${D.today}.pdf`),true);
+}
 return {renderSched,schedReset};
 })();
 const {renderCompany,advDeduct,myLoansHTML,newFormExtra,loanLimitHTML}=(()=>{
@@ -2467,7 +2527,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261023092424";
+const BUILD="20261023142321";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
