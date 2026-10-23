@@ -277,6 +277,8 @@ const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){retu
 
 const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhoto:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
 let S=fresh();
+const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
+if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
 
 const NET_MSG="Интернет холболт алга байна. Холболтоо шалгаад дахин оролдоно уу.";
 class NetErr extends Error{}
@@ -895,6 +897,7 @@ function renderLogin(m){
     <div><h2 style="margin:0 0 4px;font-size:22px">Нэвтрэх</h2><p class="muted small" style="margin:0">${MODE==="demo"?"Демо: Эрдэнэсанаа 99110001 / 20262026, Сараа 99110002 / 55667788, Бат 99110003 / 135790.":"Утасны дугаар, PIN кодоо оруулна уу."}</p></div>
     <label class="f">Утасны дугаар<input id="lg_name" type="tel" inputmode="numeric" autocomplete="username" placeholder="99112233"></label>
     <label class="f">PIN код<input id="lg_pin" class="pin" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password"></label>
+    ${S.idleOut?`<div class="banner">🔒 5 минут идэвхгүй байсан тул аюулгүй байдлын үүднээс гарлаа. Дахин нэвтэрнэ үү.</div>`:""}
     <div id="lg_err" class="banner" hidden></div>
     <button class="primary big" id="lg_btn">Нэвтрэх</button>
     <div class="small muted" style="text-align:center">PIN мартсан бол нягтланд хандана уу.</div>
@@ -2456,8 +2459,14 @@ document.addEventListener("submit",async e=>{
   }
 
 });
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user) load(true); });
-setInterval(()=>{ if(!document.hidden&&S.user) load(true); },60000);
+function touchAct(){ lastAct=Date.now(); if(lastAct-actSaved>10000){ actSaved=lastAct; try{ localStorage.setItem("aas_act",String(lastAct)); }catch(e){} } }
+["pointerdown","keydown","touchstart","wheel","input"].forEach(ev=>document.addEventListener(ev,touchAct,{capture:true,passive:true}));
+touchAct();
+function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(lastAct,actGet()); if(Date.now()-lastAct<=IDLE) return false;
+  logout(); S.idleOut=true; render(); return true; }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
+setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
+setInterval(idleCheck,15000);
 
 /* ---------- утасны мэдэгдэл ---------- */
 function pushState(){
