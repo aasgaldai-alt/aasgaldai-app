@@ -275,7 +275,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -993,7 +993,10 @@ function demoFuel(D,b,me,boss,dir){
         own:rent?"Түрээсийн":"Өөрийн",rate:rent?num(e.rate):0,rateType:e.rateType==="Сар"?"Сар":"Өдөр",monthDays:num(e.monthDays)||26,owner:rent?e.owner:"",ownerPhone:rent?e.ownerPhone:"",bank:rent?e.bank:"",acct:rent?e.acct:"",fuelBy:e.fuelBy==="Түрээслэгч"?"Түрээслэгч":"Бид",start:rent?e.start:""};
       if(b.photo){ store.set("aas_deq_"+row.id,b.photo); row.photo="demo"; } if(ex) Object.assign(ex,row); else D.equips.push(row); return out(); }
     case "deleteEquip": { if(!dir) return deny; const n=D.fuels.filter(f=>f.eq===b.id).length+(D.att||[]).filter(a=>a[1]===b.id).length;
-      if(n) return {error:"bad",message:`Энэ техникт ${n} түлшний бүртгэл байгаа тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгана уу.`};
+      const eq=D.equips.find(x=>x.id===b.id), pk=x=>String(x||"").replace(/\s+/g,"").toUpperCase();
+      if(n&&!b.force) return {error:"bad",message:`Энэ техникт ${n} түлш, ирцийн бүртгэл байгаа тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгана уу.`};
+      if(n&&pk(b.confirm)!==pk(eq?.plate)) return {error:"bad",message:"Улсын дугаарыг яг зөв бичнэ үү"};
+      D.fuels=D.fuels.filter(f=>f.eq!==b.id); D.att=(D.att||[]).filter(a=>a[1]!==b.id);
       D.equips=D.equips.filter(x=>x.id!==b.id); return out(); }
     case "equipPhoto": return {data:store.get("aas_deq_"+b.id)||""};
     case "addFuel": { const f=b.f, e=D.equips.find(x=>x.id===f.eq); const liters=+f.liters, meter=+f.meter;
@@ -1060,6 +1063,10 @@ function renderEquip(m,e){
      ${isBoss()?`<div class="ln"><span>Нийт олгосон</span><span class="n">${n1(e.liters)} л</span></div><div class="ln"><span>Нийт ажилласан</span><span class="n">${n1(e.work)} ${mUnit(e)}</span></div>`:""}</div>
     ${e.note?`<div class="meta">${esc(e.note)}</div>`:""}
     <div class="actions" style="margin-top:6px">${e.hasPhoto?`<button data-eqphoto="${esc(e.id)}">Зураг харах</button>`:""}${canEquip()?`<button data-eqedit="${esc(e.id)}">Засах</button>`:""}${isDir()?`<button class="danger" data-eqdel="${esc(e.id)}">${S.eqDel===e.id?"Дахин дарж устга":"Устгах"}</button>`:""}</div>
+    ${isDir()&&S.eqForce===e.id?`<div class="card form" style="border:2px solid #c62828;margin-top:8px"><div class="small"><b>${esc(S.eqForceMsg||"")}</b></div>
+     <div class="small" style="margin:6px 0">Бүрмөсөн устгавал энэ техникийн <b>бүх түлш олголт, ирцийн бүртгэл</b> хамт устаж, буцааж сэргээх боломжгүй. Зөвхөн жагсаалтаас нуух бол "Засах" дотроос "Идэвхтэй" тэмдгийг арилгавал хангалттай.</div>
+     <label class="f">Баталгаажуулахын тулд улсын дугаарыг (<b>${esc(e.plate)}</b>) бичнэ үү<input id="eqf_plate" autocomplete="off"></label>
+     <div class="actions"><button data-eqfcancel>Болих</button><button class="danger" data-eqdelforce="${esc(e.id)}">Бүх бүртгэлтэй нь устгах</button></div></div>`:""}
     <div class="photo" id="eqPhotoBox"></div></div>`;
   if(isRent(e)) h+=rentBlock(e);
   if(e.active) h+=`<button class="primary big" data-fnew="${esc(e.id)}">⛽ Энэ техникт түлш олгох</button>`;
@@ -1155,7 +1162,12 @@ document.addEventListener("click",async ev=>{
   if(D.eqphoto){ t.disabled=true; try{ const r=await api("equipPhoto",{id:D.eqphoto}); $("#eqPhotoBox").innerHTML=r.data?`<img src="${r.data}" alt="Техникийн зураг">`:`<div class="small muted">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(D.fphoto){ t.disabled=true; try{ const r=await api("fuelPhoto",{id:D.fphoto}); document.getElementById("fp_"+D.fphoto).innerHTML=r.data?`<img src="${r.data}" alt="Заалтын зураг">`:`<div class="small muted">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(D.fdel){ if(S.fDel!==D.fdel){ S.fDel=D.fdel; render(); return; } t.disabled=true; try{ S.fuel=await api("deleteFuel",{id:D.fdel}); S.fDel=null; saveCache(); toast("Устгалаа"); render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
-  if(D.eqdel){ if(S.eqDel!==D.eqdel){ S.eqDel=D.eqdel; render(); return; } t.disabled=true; try{ S.fuel=await api("deleteEquip",{id:D.eqdel}); S.eqDel=null; S.feq=null; saveCache(); toast("Техник устгагдлаа"); render(); }catch(err){ S.eqDel=null; render(); result(false,"Устгах боломжгүй",err.message); } return; }
+  if(D.eqdel){ if(S.eqDel!==D.eqdel){ S.eqDel=D.eqdel; render(); return; } t.disabled=true; try{ S.fuel=await api("deleteEquip",{id:D.eqdel}); S.eqDel=null; S.feq=null; saveCache(); toast("Техник устгагдлаа"); render(); }catch(err){ S.eqDel=null; if(/бүртгэл байгаа/.test(err.message)){ S.eqForce=D.eqdel; S.eqForceMsg=err.message.replace(/ Оронд нь.*$/,""); render(); } else { render(); result(false,"Устгах боломжгүй",err.message); } } return; }
+  if(D.eqfcancel!=null){ S.eqForce=null; render(); return; }
+  if(D.eqdelforce){ const id=D.eqdelforce, eq=(S.fuel?.equips||[]).find(x=>x.id===id), pk=x=>String(x||"").replace(/\s+/g,"").toUpperCase(), cf=$("#eqf_plate")?.value||"";
+    if(eq&&pk(cf)!==pk(eq.plate)){ toast("Улсын дугаарыг яг зөв бичнэ үү"); $("#eqf_plate")?.focus(); return; } t.disabled=true; t.textContent="Устгаж байна…";
+    try{ S.fuel=await api("deleteEquip",{id,force:true,confirm:cf}); const d=S.fuel.deleted||{}; S.eqForce=null; S.eqDel=null; S.feq=null; saveCache(); toast(`Техник устгагдлаа${d.fuels!=null?` (${d.fuels} түлш, ${d.atts} ирцийн бүртгэл хамт)`:""}`); render(); }
+    catch(err){ t.disabled=false; t.textContent="Бүх бүртгэлтэй нь устгах"; result(false,"Устгах боломжгүй",err.message); } return; }
   if(D.fxl!=null) return runExport(t,exportFuelXlsx);
 });
 document.addEventListener("input",ev=>{
@@ -2606,7 +2618,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026234752";
+const BUILD="20261026235152";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

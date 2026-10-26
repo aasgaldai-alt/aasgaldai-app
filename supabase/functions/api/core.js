@@ -498,7 +498,7 @@ function handle_(b) {
         saveEquip_(b.eq, b.photo); return fuelData_(me, boss);
       case 'deleteEquip':
         if (!director) return deny_();
-        deleteEquip_(b.id); return fuelData_(me, boss);
+        var dr = deleteEquip_(b.id, b.force, b.confirm); var fd = fuelData_(me, boss); fd.deleted = dr; return fd;
       case 'equipPhoto':
         var eq = equips_().filter(function (x) { return x.id === b.id; })[0];
         return { data: eq && eq.photo ? fileData_(eq.photo) : '' };
@@ -1180,11 +1180,21 @@ function saveEquip_(e, photo) {
     if (idx > 0) sh.getRange(idx + 1, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
   } finally { lock.releaseLock(); }
 }
-function deleteEquip_(id) {
-  var n = fuelsRaw_().filter(function (f) { return f.eq === id; }).length + atts_().filter(function (a) { return a.eq === id; }).length;
-  if (n) throw new Error('Энэ техникт ' + n + ' түлш, ирцийн бүртгэл байгаа тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгана уу.');
+function plateKey_(x) { return String(x || '').replace(/\s+/g, '').toUpperCase(); }
+function deleteEquip_(id, force, confirm) {
+  var eq = equips_().filter(function (x) { return x.id === id; })[0];
+  if (!eq) throw new Error('Техник олдсонгүй');
+  var nF = fuelsRaw_().filter(function (f) { return f.eq === id; }).length, nA = atts_().filter(function (a) { return a.eq === id; }).length, n = nF + nA;
+  if (n && force) {
+    // Захирал улсын дугаарыг бичиж баталгаажуулсан: түлш, ирцийн бүртгэлийг хамт устгана
+    if (plateKey_(confirm) !== plateKey_(eq.plate)) throw new Error('Улсын дугаарыг яг зөв бичнэ үү');
+    var fs = fuelSheet_(), fv = fs.getDataRange().getValues(), fi = FCOLS.indexOf('eq');
+    for (var a = fv.length - 1; a >= 1; a--) if (String(fv[a][fi]) === id) fs.deleteRow(a + 1);
+    var as = attSheet_(), av = as.getDataRange().getValues();
+    for (var c = av.length - 1; c >= 1; c--) if (String(av[c][2]) === id) as.deleteRow(c + 1);
+  } else if (n) throw new Error('Энэ техникт ' + n + ' түлш, ирцийн бүртгэл байгаа тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгана уу.');
   var sh = eqSheet_(), v = sh.getDataRange().getValues();
-  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === id) { sh.deleteRow(i + 1); return; }
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === id) { sh.deleteRow(i + 1); return { fuels: nF, atts: nA }; }
   throw new Error('Техник олдсонгүй');
 }
 function addFuel_(me, f, photo) {
