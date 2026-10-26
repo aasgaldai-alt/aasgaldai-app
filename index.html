@@ -366,7 +366,7 @@ function demo(b){
     case "status": { if(!boss) return deny; const r=D.reqs.find(x=>x.id===b.id); if(!r) return {error:"bad",message:"Олдсонгүй"};
       r.status=b.status; r.decided=me.name; if(b.status===ST.PAID) r.paid=nowS(); if(b.note) r.note=b.note; save(); return {req:r}; }
     case "photo": return {data:store.get("aas_dph_"+b.id)||""};
-    case "dashboard": { if(!boss) return deny; return {projects:D.projects.map(p=>{ const s={ok:{n:0,sum:0},paid:{n:0,sum:0},wait:{n:0,sum:0},no:{n:0,sum:0},cats:{},vatSum:0,vatN:0,eboSum:0,eboN:0};
+    case "dashboard": { const pmV=me.role==="Төслийн удирдагч"; if(!boss&&!pmV) return deny; return {projects:D.projects.filter(p=>boss||(p.code!==GEN&&!!me.projects&&me.projects.includes(p.code))).map(p=>{ const s={ok:{n:0,sum:0},paid:{n:0,sum:0},wait:{n:0,sum:0},no:{n:0,sum:0},cats:{},vatSum:0,vatN:0,eboSum:0,eboN:0};
       for(const r of D.reqs){ if(r.proj!==p.code) continue; const k={[ST.OK]:"ok",[ST.PAID]:"paid",[ST.WAIT]:"wait",[ST.NO]:"no"}[r.status]; if(!k) continue; s[k].n++; s[k].sum+=+r.amount; if(k==="ok"||k==="paid"){ s.cats[r.cat]=(s.cats[r.cat]||0)+ +r.amount; const t=rtOf(r); if(t==="vat"){ s.vatSum+=+r.amount; s.vatN++; } else if(t==="ebo"){ s.eboSum+=+r.amount; s.eboN++; } } }
       const inc=(D.incomes||[]).filter(x=>x.proj===p.code).map(({photo,...x})=>({...x,hasPhoto:!!photo}));
       const {photo,...rest}=p; return {...rest,hasPhoto:!!photo,stats:s,incomes:inc,incomeSum:inc.reduce((a,x)=>a+x.amount,0)}; })}; }
@@ -606,7 +606,7 @@ function setTabs(){
   const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
           :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
           :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
-          :isPM()?[PT,["wait","⏳","Батлах",pmPend],GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
+          :isPM()?[PT,["wait","⏳","Батлах",pmPend],["dash","▦","Төсөл",0],GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
           :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,ME]
           :isHab()?[HT,GR,...NEW,MINE,ME]
           :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,ME]
@@ -674,7 +674,7 @@ function renderDash(m){
   const P=S.dash.slice().sort((a,b)=>(b.code===GEN)-(a.code===GEN)); if(!S.dp||!P.some(p=>p.code===S.dp)) S.dp=P[0]?.code;
   const p=P.find(x=>x.code===S.dp);
   let h=demoBanner()+`<div class="chips">${P.map(x=>`<button data-dp="${esc(x.code)}" aria-pressed="${x.code===S.dp}">${x.code===GEN?"🏢 Компани":esc(x.code)}${x.active?"":" (хаасан)"}</button>`).join("")}${isDir()?`<button data-newproj>＋ Шинэ төсөл</button>`:""}</div>`;
-  if(!p){ m.innerHTML=h+`<div class="card empty">Төсөл алга.</div>`; return; }
+  if(!p){ m.innerHTML=h+`<div class="card empty">${isBoss()?"Төсөл алга.":"Танд төсөл оноогоогүй байна. Захирал «Тохиргоо → Хэрэглэгчид» хэсгээс таны төслийг сонгож өгнө."}</div>`; return; }
   if(p.code===GEN) return renderCompany(m,h);
   const F=fin(p), s=F.st;
   h+=`<div class="card"><div style="font-weight:600;font-size:16px">${esc(p.name)}</div><div class="small muted">${esc(p.code)}</div>
@@ -695,12 +695,12 @@ function renderDash(m){
      <div class="ln sub"><span>Зөвшөөрсөн, төлөөгүй</span><span class="n">${fmt(s.ok.sum)}</span></div>
      <div class="ln sub"><span>Захиалагчаас авах үлдэгдэл</span><span class="n">${fmt(left)}</span></div>
      ${F.income?`<div class="ln sub"><span>Санхүүжилт орсон хувь</span><span class="n">${(rec/F.income*100).toFixed(1)}%</span></div>`:""}</div>`;
-  h+=`<h3 class="sec">Гүйцэтгэлийн санхүүжилт</h3><button class="primary big" data-newinc="${esc(p.code)}">＋ Санхүүжилт бүртгэх</button>`;
+  h+=`<h3 class="sec">Гүйцэтгэлийн санхүүжилт</h3>${isBoss()?`<button class="primary big" data-newinc="${esc(p.code)}">＋ Санхүүжилт бүртгэх</button>`:""}`;
   const incs=(p.incomes||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   h+=incs.length?incs.map(x=>`<div class="card req"><div class="top"><div class="what">${esc(x.desc||"Санхүүжилт")}</div><div class="amt pos">+${fmt(x.amount)} ₮</div></div>
      <div class="tags"><span class="tag">${esc(x.date)}</span><span class="tag">${esc(x.vat)}</span></div><div class="meta">Бүртгэсэн: ${esc(x.by)}${x.note?" · "+esc(x.note):""}</div>
      ${x.hasPhoto||isDir()?`<div class="actions">${x.hasPhoto?`<button data-incphoto="${esc(x.id)}">Баримт харах</button>`:""}${isDir()?`<button class="danger" data-delinc="${esc(x.id)}">${S.incDel===x.id?"Дахин дарж устга":"Устгах"}</button>`:""}</div><div class="photo" id="ip_${esc(x.id)}"></div>`:""}</div>`).join("")
-     :`<div class="card empty">Санхүүжилт бүртгээгүй байна. Захиалагчаас мөнгө орох бүрт дээрх товчоор бүртгэнэ.</div>`;
+     :`<div class="card empty">Санхүүжилт бүртгээгүй байна.${isBoss()?" Захиалагчаас мөнгө орох бүрт дээрх товчоор бүртгэнэ.":""}</div>`;
   h+=`<h3 class="sec">Зардлын хүсэлтүүд</h3><div class="stat3">
      <div class="card ok"><div class="l">Баталгаажсан</div><div class="c">${s.ok.n+s.paid.n}</div><div class="s">${fmt(s.ok.sum+s.paid.sum)} ₮</div><div class="small muted">төлсөн ${s.paid.n}</div></div>
      <div class="card wt"><div class="l">Хүлээгдэж буй</div><div class="c">${s.wait.n}</div><div class="s">${fmt(s.wait.sum)} ₮</div></div>
@@ -2606,7 +2606,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026233441";
+const BUILD="20261026234752";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

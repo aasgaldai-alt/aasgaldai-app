@@ -278,6 +278,8 @@ function canApprove_(u, r) {
 function pmSees_(u, r) { return isPM_(u) && r.proj !== GEN && canProj_(u, r.proj); }
 function isCook_(u) { return u.role === 'Тогооч'; }
 function isPM_(u) { return u.role === 'Төслийн удирдагч'; }
+// Төслийн удирдагч зөвхөн өөрт оноогдсон төслийн санхүүг харна (компанийн ерөнхий санхүү, оноогоогүй төсөл харагдахгүй)
+function pmProj_(u, code) { return isPM_(u) && code !== GEN && !!u.projects && u.projects.indexOf(code) >= 0; }
 function isHR_(u) { return u.role === 'Хүний нөөц'; }
 function isHab_(u) { return u.role === 'ХАБ инженер'; }
 function isBoss_(u) { return u.role === 'Нягтлан' || isDir_(u); }
@@ -395,10 +397,11 @@ function handle_(b) {
         if (!r || !r.photo || (!boss && r.by !== me.name && !pmSees_(me, r))) return { data: '' };
         return { data: fileData_(r.photo) };
       case 'dashboard':
-        if (!boss) return deny_();
-        return { projects: dashboard_() };
+        if (boss) return { projects: dashboard_() };
+        if (!isPM_(me)) return deny_();
+        return { projects: dashboard_().filter(function (x) { return pmProj_(me, x.code); }) };
       case 'contract':
-        if (!boss) return deny_();
+        if (!boss && !pmProj_(me, String(b.code || ''))) return deny_();
         var p = projects_().filter(function (x) { return x.code === b.code; })[0];
         var cids = p && p.photo ? String(p.photo).split(',').filter(String) : [];
         var pg = Math.max(0, Math.min(cids.length - 1, +b.page || 0));
@@ -419,8 +422,9 @@ function handle_(b) {
         if (!director) return deny_();
         deleteIncome_(b.id); return { ok: true };
       case 'incomePhoto':
-        if (!boss) return deny_();
+        if (!boss && !isPM_(me)) return deny_();
         var inc = incomesRaw_().filter(function (x) { return x.id === b.id; })[0];
+        if (!boss && !(inc && pmProj_(me, inc.proj))) return deny_();
         return { data: inc && inc.photo ? fileData_(inc.photo) : '' };
       case 'userList':
         if (!canUsers_(me)) return deny_();
