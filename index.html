@@ -275,7 +275,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -371,8 +371,10 @@ function demo(b){
       const inc=(D.incomes||[]).filter(x=>x.proj===p.code).map(({photo,...x})=>({...x,hasPhoto:!!photo}));
       const {photo,...rest}=p; return {...rest,hasPhoto:!!photo,stats:s,incomes:inc,incomeSum:inc.reduce((a,x)=>a+x.amount,0)}; })}; }
     case "deleteProject": { if(!dir) return deny; const nR=D.reqs.filter(r=>r.proj===b.code).length, nI=(D.incomes||[]).filter(x=>x.proj===b.code).length;
-      if(nR||nI) return {error:"bad",message:`Энэ төсөлд ${nR} хүсэлт, ${nI} санхүүжилт бүртгэлтэй тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгаж хаана уу.`};
-      D.projects=D.projects.filter(p=>p.code!==b.code); save(); return {ok:true}; }
+      const force=b.force&&String(b.confirm||"").trim().toUpperCase()===String(b.code).toUpperCase();
+      if((nR||nI)&&!force) return {error:"bad",message:`Энэ төсөлд ${nR} хүсэлт, ${nI} санхүүжилт бүртгэлтэй тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгаж хаана уу.`};
+      if(force){ D.reqs=D.reqs.filter(r=>r.proj!==b.code); D.incomes=(D.incomes||[]).filter(x=>x.proj!==b.code); }
+      D.projects=D.projects.filter(p=>p.code!==b.code); save(); return {ok:true,reqs:nR,incomes:nI}; }
     case "addIncome": { if(!boss) return deny; const f=b.inc; if(!f.proj||!(num(f.amount)>0)||!f.date||!VATS.includes(f.vat)) return {error:"bad",message:"Мэдээлэл дутуу байна"};
       const id="I"+Date.now(); if(b.photo) store.set("aas_dip_"+id,b.photo);
       (D.incomes=D.incomes||[]).push({id,date:f.date,proj:f.proj,desc:String(f.desc||"").trim(),amount:num(f.amount),vat:f.vat,photo:b.photo?"demo":"",by:me.name,note:f.note||""}); save(); return {income:{id}}; }
@@ -790,7 +792,10 @@ function renderSettings(m){
      ${locked||me?"":`<button class="danger" data-deluser="${esc(u.name)}">${S.delAsk===u.name?"Дахин дарж устга":"Хасах"}</button>`}</div>`; }).join("");
   if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Үүнээс дээш дүнтэй хүсэлтийг зөвхөн захирал батална. Нягтлан батлахгүй, батлагдсан хүсэлтийг төлнө.</div><button data-setlimit="">Хадгалах</button></div>`+loanLimitHTML();
   if(isDir()&&S.meta) h+=`<h3 class="sec">Байршил</h3><div class="card"><label class="chk"><input type="checkbox" id="locReq" ${S.meta.locRequired!==false?"checked":""}> Ажилчдын хүсэлт заавал байршилтай байна</label><div class="small muted" style="margin-top:6px">Асаалттай үед утасны байршил тогтоогдохгүй бол ажилчин хүсэлт илгээж чадахгүй. GPS-ийн асуудал гарвал түр унтрааж болно.</div></div>`;
-  if(isDir()&&S.dash){ h+=`<h3 class="sec">Төслүүд</h3><div class="small muted" style="margin:0 2px">Хүсэлт, санхүүжилт бүртгэгдээгүй төслийг л устгана. Бусдыг нь "Засах" дотроос хааж болно.</div>`+S.dash.map(p=>`<div class="card urow"><div class="nm"><b>${esc(p.code)}</b><span class="small muted">${esc(p.name)}${p.active?"":" · хаасан"}</span></div><button data-editproj="${esc(p.code)}">Засах</button><button class="danger" data-delproj="${esc(p.code)}">${S.projDel===p.code?"Дахин дарж устга":"Устгах"}</button></div>`).join("")+`<button data-newproj class="big">＋ Шинэ төсөл</button>`; }
+  if(isDir()&&S.dash){ h+=`<h3 class="sec">Төслүүд</h3><div class="small muted" style="margin:0 2px">Хүсэлт, санхүүжилт бүртгэгдээгүй төслийг л устгана. Бусдыг нь "Засах" дотроос хааж болно.</div>`+S.dash.map(p=>`<div class="card urow"><div class="nm"><b>${esc(p.code)}</b><span class="small muted">${esc(p.name)}${p.active?"":" · хаасан"}</span></div><button data-editproj="${esc(p.code)}">Засах</button><button class="danger" data-delproj="${esc(p.code)}">${S.projDel===p.code?"Дахин дарж устга":"Устгах"}</button></div>${S.projForce===p.code?`<div class="card form" style="border:2px solid #c62828"><div class="small"><b>${esc(S.projForceMsg||"")}</b></div>
+     <div class="small" style="margin:6px 0">Бүрмөсөн устгавал энэ төслийн <b>бүх хүсэлт (зардал, төлбөр, зээл) болон санхүүжилт</b> хамт устаж, буцааж сэргээх боломжгүй. Хэрэв зөвхөн жагсаалтаас нуух бол "Засах" дотроос "Идэвхтэй" тэмдгийг арилгавал хангалттай.</div>
+     <label class="f">Баталгаажуулахын тулд төслийн кодыг (<b>${esc(p.code)}</b>) бичнэ үү<input id="pf_code" autocomplete="off"></label>
+     <div class="actions"><button data-pfcancel>Болих</button><button class="danger" data-delprojforce="${esc(p.code)}">Бүх бүртгэлтэй нь устгах</button></div></div>`:""}`).join("")+`<button data-newproj class="big">＋ Шинэ төсөл</button>`; }
   else if(isDir()) loadDash();
   m.innerHTML=h;
 }
@@ -2428,7 +2433,11 @@ document.addEventListener("click",async e=>{
   if(D.sitehere!=null){ t.disabled=true; t.textContent="Тогтоож байна…"; try{ const l=await getLoc(); $("#p_site").value=l.lat.toFixed(6)+", "+l.lng.toFixed(6); toast("Байршил тохирлоо (±"+l.acc+" м)"); }catch(err){ toast("Байршил олдсонгүй. "+LOC_HELP); } t.disabled=false; t.textContent="📍 Одоогийн байршлаар тохируулах"; return; }
   if(D.delproj){ if(S.projDel!==D.delproj){ S.projDel=D.delproj; render(); return; } t.disabled=true;
     try{ await api("deleteProject",{code:D.delproj}); S.projDel=null; S.dash=(S.dash||[]).filter(x=>x.code!==D.delproj); S.meta=null; if(S.dp===D.delproj) S.dp=null; saveCache(); toast("Төсөл устгагдлаа"); render(); load(true); }
-    catch(err){ S.projDel=null; render(); result(false,"Устгах боломжгүй",err.message); } return; }
+    catch(err){ S.projDel=null; if(/бүртгэлтэй/.test(err.message)){ S.projForce=D.delproj; S.projForceMsg=err.message.replace(/ Оронд нь.*$/,""); render(); } else { render(); result(false,"Устгах боломжгүй",err.message); } } return; }
+  if(D.pfcancel!=null){ S.projForce=null; render(); return; }
+  if(D.delprojforce){ const code=D.delprojforce, cf=($("#pf_code")?.value||"").trim().toUpperCase(); if(cf!==code.toUpperCase()){ toast("Төслийн кодыг яг зөв бичнэ үү"); $("#pf_code")?.focus(); return; } t.disabled=true; t.textContent="Устгаж байна…";
+    try{ const r=await api("deleteProject",{code,force:true,confirm:cf}); S.projForce=null; S.dash=(S.dash||[]).filter(x=>x.code!==code); S.meta=null; S.reqs=(S.reqs||[]).filter(x=>x.proj!==code); if(S.dp===code) S.dp=null; saveCache(); toast(`Төсөл устгагдлаа (${r.reqs||0} хүсэлт, ${r.incomes||0} санхүүжилт хамт)`); render(); load(true); }
+    catch(err){ t.disabled=false; t.textContent="Бүх бүртгэлтэй нь устгах"; result(false,"Устгах боломжгүй",err.message); } return; }
   if(D.newinc){ S.incEdit={proj:D.newinc,date:new Date(Date.now()+8*36e5).toISOString().slice(0,10),desc:"",amount:0,vat:"НӨАТ-тай",note:""}; S.incPhoto=null; render(); scrollTo(0,0); return; }
   if(D.cancelInc!=null){ S.incEdit=null; render(); return; }
   if(t.closest("[data-ichip]")){ S.incEdit.vat=D.v; t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
@@ -2554,7 +2563,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026170646";
+const BUILD="20261026232609";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

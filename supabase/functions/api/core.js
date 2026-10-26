@@ -411,7 +411,7 @@ function handle_(b) {
         return { pages: addContractPages_(b.code, b.photos) };
       case 'deleteProject':
         if (!director) return deny_();
-        deleteProject_(b.code); return { ok: true };
+        return deleteProject_(b.code, b.force && String(b.confirm || '').trim().toUpperCase() === String(b.code || '').trim().toUpperCase());
       case 'addIncome':
         if (!boss) return deny_();
         return { income: addIncome_(me, b.inc, b.photo) };
@@ -816,18 +816,26 @@ function saveProject_(p, photo, photos) {
   }
   return dashboard_().filter(function (x) { return x.code === code; })[0];
 }
-function deleteProject_(code) {
+function deleteProject_(code, force) {
   code = String(code || '').trim();
   var nReq = rows_().filter(function (r) { return r.proj === code; }).length;
   var nInc = incomesRaw_().filter(function (x) { return x.proj === code; }).length;
-  if (nReq || nInc) throw new Error('Энэ төсөлд ' + nReq + ' хүсэлт, ' + nInc + ' санхүүжилт бүртгэлтэй тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгаж хаана уу.');
+  var found = sh_('Төсөл').getRange(1, 1, sh_('Төсөл').getLastRow(), 1).getValues().some(function (r, i) { return i > 0 && String(r[0]).trim() === code; });
+  if (!found) throw new Error('Төсөл олдсонгүй');
+  if ((nReq || nInc) && force) {
+    // Захирал кодыг бичиж баталгаажуулсан: төслийн хүсэлт, санхүүжилтийг хамт устгана
+    var rs = sh_('Хүсэлт'), rv = rs.getDataRange().getValues(), ci = COLS.indexOf('proj');
+    for (var a = rv.length - 1; a >= 1; a--) if (String(rv[a][ci]).trim() === code && String(rv[a][0]).indexOf('EX') !== 0) rs.deleteRow(a + 1);
+    var is = sh_('Санхүүжилт'), iv = is.getDataRange().getValues(), ii = ICOLS.indexOf('proj');
+    for (var c = iv.length - 1; c >= 1; c--) if (String(iv[c][ii]).trim() === code) is.deleteRow(c + 1);
+  } else if (nReq || nInc) throw new Error('Энэ төсөлд ' + nReq + ' хүсэлт, ' + nInc + ' санхүүжилт бүртгэлтэй тул устгах боломжгүй. Оронд нь "Засах" дотроос "Идэвхтэй" тэмдгийг арилгаж хаана уу.');
   var sh = sh_('Төсөл'), v = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
   for (var i = v.length - 1; i >= 1; i--) {
     if (String(v[i][0]).trim() === code) {
       sh.getRange(i + 1, 15, 1, 2).deleteCells(SpreadsheetApp.Dimension.ROWS);
       sh.getRange(i + 1, 1, 1, PCOLS.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
       CacheService.getScriptCache().remove('meta');
-      return;
+      return { ok: true, reqs: nReq, incomes: nInc };
     }
   }
   throw new Error('Төсөл олдсонгүй');
