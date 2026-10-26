@@ -1743,7 +1743,7 @@ export async function runRequest(body, store) {
       if (!ok) continue;
       try {
         const plan = notifyPlan_(app, body, out);
-        if (plan.length) { const p = deliver_(ctx, plan, store).catch((e) => console.error("push", e)); if (store.defer) store.defer(p); else await p; }
+        if (plan.length) { const p = deliver_(ctx, plan, store).catch((e) => console.error("push", e)); await Promise.race([p, new Promise((r) => setTimeout(r, 6000))]); if (store.defer) store.defer(p); }
       } catch (e) { console.error("notify", e); }
     }
     if (out && typeof out.data === "string" && out.data.indexOf(FILE_MARK) === 0) {
