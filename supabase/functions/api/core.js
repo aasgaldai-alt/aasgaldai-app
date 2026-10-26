@@ -279,7 +279,7 @@ function pmSees_(u, r) { return isPM_(u) && r.proj !== GEN && canProj_(u, r.proj
 function isCook_(u) { return u.role === 'Тогооч'; }
 function isPM_(u) { return u.role === 'Төслийн удирдагч'; }
 // Төслийн удирдагч зөвхөн өөрт оноогдсон төслийн санхүүг харна (компанийн ерөнхий санхүү, оноогоогүй төсөл харагдахгүй)
-function pmProj_(u, code) { return isPM_(u) && code !== GEN && !!u.projects && u.projects.indexOf(code) >= 0; }
+function pmProj_(u, code) { return isPM_(u) && !!u.fin && code !== GEN && !!u.projects && u.projects.indexOf(code) >= 0; }
 function isHR_(u) { return u.role === 'Хүний нөөц'; }
 function isHab_(u) { return u.role === 'ХАБ инженер'; }
 function isBoss_(u) { return u.role === 'Нягтлан' || isDir_(u); }
@@ -380,6 +380,7 @@ function handle_(b) {
         try { out.hab = habBadge_(me); } catch (e) {}
         out.myProjects = me.projects;
         out.canReq = me.canReq !== false;
+        out.fin = isPM_(me) && !!me.fin;
         if (boss || isPM_(me)) try { out.loansOpen = loanList_().filter(function (l) { return l.type === 'Авсан' && l.bal > 0; }).map(function (l) { return { id: l.id, party: l.party, proj: l.proj, bal: l.bal }; }); out.emps = activeUsers_().map(function (u) { return u.name; }); } catch (e) {}
         try { out.hr = hrBadge_(me); } catch (e) {}
         try { out.meal = lastMeal_(me); } catch (e) {}
@@ -529,8 +530,8 @@ function users_() {
   var cache = CacheService.getScriptCache(), hit = cache.get('users');
   if (hit) return JSON.parse(hit);
   var sh = sh_('Хэрэглэгч'); if (sh.getLastRow() < 2) return [];
-  if (sh.getMaxColumns() < 19) sh.insertColumnsAfter(sh.getMaxColumns(), 19 - sh.getMaxColumns());
-  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 19).getValues();
+  if (sh.getMaxColumns() < 20) sh.insertColumnsAfter(sh.getMaxColumns(), 20 - sh.getMaxColumns());
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 20).getValues();
   var out = [];
   v.forEach(function (r, i) {
     if (!r[0]) return;
@@ -538,7 +539,8 @@ function users_() {
                phone: digits_(r[4]), mustChange: r[5] === true || String(r[5]).toUpperCase() === 'TRUE', projects: projList_(r[6]),
                position: String(r[7] || '').trim(), wageType: String(r[8]) === 'Сар' ? 'Сар' : 'Өдөр', wage: num_(r[9]), wdays: num_(r[10]) || 22,
                surname: String(r[11] || '').trim(), given: String(r[12] || '').trim(), age: num_(r[13]) || '', sex: String(r[14] || ''),
-               canReq: !(r[15] === false || String(r[15]).toUpperCase() === 'FALSE'), status: String(r[16] || '').trim(), regAt: fmtDate_(r[17]), sched: r[18] === true || String(r[18]).toUpperCase() === 'TRUE' });
+               canReq: !(r[15] === false || String(r[15]).toUpperCase() === 'FALSE'), status: String(r[16] || '').trim(), regAt: fmtDate_(r[17]), sched: r[18] === true || String(r[18]).toUpperCase() === 'TRUE',
+               fin: r[19] === true || String(r[19]).toUpperCase() === 'TRUE' });
   });
   cache.put('users', JSON.stringify(out), 300);
   return out;
@@ -546,7 +548,7 @@ function users_() {
 function projList_(x) { var p = String(x || '').trim(); if (!p || p === '*') return null; return p.split(/[,\s]+/).filter(function (c) { return c; }); }
 function canProj_(u, code) { return !u.projects || u.projects.indexOf(code) >= 0; }
 function dropUsers_() { CacheService.getScriptCache().remove('users'); }
-function pubUsers_(full, personal) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position, canReq: u.canReq, status: u.status, sched: u.sched };
+function pubUsers_(full, personal) { return users_().map(function (u) { var o = { name: u.name, role: u.role, email: u.email, phone: u.phone, mustChange: u.mustChange, projects: u.projects, position: u.position, canReq: u.canReq, status: u.status, sched: u.sched, fin: !!u.fin };
   if (personal) { o.surname = u.surname; o.given = u.given; o.age = u.age; o.sex = u.sex; o.regAt = u.regAt; }
   if (full) { o.wageType = u.wageType; o.wage = u.wage; o.wdays = u.wdays; } return o; }); }
 function activeUsers_() { return users_().filter(function (u) { return u.status !== PENDING; }); }
@@ -657,8 +659,11 @@ function saveUser_(me, u, isNew) {
   userHead_(sh);
   var sched = role === 'Инженер' && (u.sched != null ? !!u.sched : !!(ex && ex.sched));
   if (u.sched && role !== 'Инженер') throw new Error('Ажлын график хөтлөх эрхийг зөвхөн Инженерт олгоно');
-  if (isNew) sh.appendRow(row.concat(['Өдөр', '', ''], ext.slice(0, 6), [new Date(), sched]));
-  else { sh.getRange(ex.row, 1, 1, 8).setValues([row]); sh.getRange(ex.row, 12, 1, 6).setValues([ext.slice(0, 6)]); sh.getRange(ex.row, 19).setValue(sched); }
+  // Төслийн тооцоо харах эрхийг зөвхөн захирал, зөвхөн Төслийн удирдагчид олгоно
+  var fin = role === 'Төслийн удирдагч' && (isDir_(me) && u.fin != null ? !!u.fin : !!(ex && ex.fin));
+  if (!String(sh.getRange(1, 20).getValue())) sh.getRange(1, 20).setValue('Төслийн тооцоо харах');
+  if (isNew) sh.appendRow(row.concat(['Өдөр', '', ''], ext.slice(0, 6), [new Date(), sched, fin]));
+  else { sh.getRange(ex.row, 1, 1, 8).setValues([row]); sh.getRange(ex.row, 12, 1, 6).setValues([ext.slice(0, 6)]); sh.getRange(ex.row, 19, 1, 2).setValues([[sched, fin]]); }
   if (sched) { // нэг төсөлд нэг л график хөтлөгч
     var mine = projList_(pr);
     all.forEach(function (x) {

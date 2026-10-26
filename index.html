@@ -333,7 +333,7 @@ function demo(b){
   { const bt=D.users.find(u=>u.name==="Бат"); if(bt&&bt.projects===undefined) bt.projects=["ТТ2"]; }
   { const t2=D.projects.find(p=>p.code==="ТТ2"); if(t2&&t2.lat==null){ t2.lat=43.6312; t2.lng=105.5241; }
     D.reqs.forEach((r,i)=>{ if(r.loc==null) r.loc=r.id==="R8"?"47.918100,106.917500,25":r.proj==="ТТ2"?`${(43.6312+i*0.004).toFixed(6)},${(105.5241-i*0.003).toFixed(6)},${12+i*3}`:r.id==="R7"?"":"47.920000,106.920000,20"; }); }
-  const pub=u=>({name:u.name,role:u.role,email:u.email,phone:u.phone,mustChange:u.mustChange,projects:u.projects||null,position:u.position||""});
+  const pub=u=>({name:u.name,role:u.role,email:u.email,phone:u.phone,mustChange:u.mustChange,projects:u.projects||null,position:u.position||"",fin:!!u.fin});
   const me=D.users.find(u=>u.name===b.name);
   const dir=me&&(me.role==="Захирал"||me.role==="Админ"); const boss=me&&(me.role==="Нягтлан"||dir);
   const deny={error:"bad",message:"Эрх хүрэхгүй"};
@@ -353,7 +353,7 @@ function demo(b){
   { const hr=demoHab(D,b,me); if(hr){ if(!hr.error) save(); return hr; } }
   if(!boss&&["fuel","saveEquip","deleteEquip","equipPhoto","addFuel","deleteFuel","fuelPhoto","mark"].includes(b.action)) return {error:"bad",message:"Эрх хүрэхгүй"};
   { const fr=demoFuel(D,b,me,boss,dir); if(fr){ if(!fr.error) save(); return fr; } }
-  if(b.action==="boot"){ const L=demo({...b,action:"list"}), M=demo({...b,action:"meta"}); const out={meal:demoCook(D,{...b,action:"lastMeal"},me),hr:demoHR(D,{...b,action:"hrBadge"},me),myProjects:me.projects||null,reqs:L.reqs,meta:M,hab:demoHab(D,{...b,action:"habBadge"},me)}; if(boss) out.projects=demo({...b,action:"dashboard"}).projects; return out; }
+  if(b.action==="boot"){ const L=demo({...b,action:"list"}), M=demo({...b,action:"meta"}); const out={meal:demoCook(D,{...b,action:"lastMeal"},me),hr:demoHR(D,{...b,action:"hrBadge"},me),myProjects:me.projects||null,fin:me.role==="Төслийн удирдагч"&&!!me.fin,reqs:L.reqs,meta:M,hab:demoHab(D,{...b,action:"habBadge"},me)}; if(boss) out.projects=demo({...b,action:"dashboard"}).projects; return out; }
   switch(b.action){
     case "meta": return {projects:D.projects.filter(p=>p.active).map(p=>[p.code,p.name]),
       categories:[["МАТ","Материал"],["ТЕХ","Техник, сэлбэг"],["ТЭЭ","Тээвэр"],["ТҮЛ","Түлш, тос"],["ЦАЛ","Цалин"],["ХОО","Хоол, ахуй"],["ТУС","Туслан гүйцэтгэгч"],["ЛАБ","Лаборатори"],["БУС","Бусад"]],
@@ -366,7 +366,7 @@ function demo(b){
     case "status": { if(!boss) return deny; const r=D.reqs.find(x=>x.id===b.id); if(!r) return {error:"bad",message:"Олдсонгүй"};
       r.status=b.status; r.decided=me.name; if(b.status===ST.PAID) r.paid=nowS(); if(b.note) r.note=b.note; save(); return {req:r}; }
     case "photo": return {data:store.get("aas_dph_"+b.id)||""};
-    case "dashboard": { const pmV=me.role==="Төслийн удирдагч"; if(!boss&&!pmV) return deny; return {projects:D.projects.filter(p=>boss||(p.code!==GEN&&!!me.projects&&me.projects.includes(p.code))).map(p=>{ const s={ok:{n:0,sum:0},paid:{n:0,sum:0},wait:{n:0,sum:0},no:{n:0,sum:0},cats:{},vatSum:0,vatN:0,eboSum:0,eboN:0};
+    case "dashboard": { const pmV=me.role==="Төслийн удирдагч"&&!!me.fin; if(!boss&&!pmV) return deny; return {projects:D.projects.filter(p=>boss||(p.code!==GEN&&!!me.projects&&me.projects.includes(p.code))).map(p=>{ const s={ok:{n:0,sum:0},paid:{n:0,sum:0},wait:{n:0,sum:0},no:{n:0,sum:0},cats:{},vatSum:0,vatN:0,eboSum:0,eboN:0};
       for(const r of D.reqs){ if(r.proj!==p.code) continue; const k={[ST.OK]:"ok",[ST.PAID]:"paid",[ST.WAIT]:"wait",[ST.NO]:"no"}[r.status]; if(!k) continue; s[k].n++; s[k].sum+=+r.amount; if(k==="ok"||k==="paid"){ s.cats[r.cat]=(s.cats[r.cat]||0)+ +r.amount; const t=rtOf(r); if(t==="vat"){ s.vatSum+=+r.amount; s.vatN++; } else if(t==="ebo"){ s.eboSum+=+r.amount; s.eboN++; } } }
       const inc=(D.incomes||[]).filter(x=>x.proj===p.code).map(({photo,...x})=>({...x,hasPhoto:!!photo}));
       const {photo,...rest}=p; return {...rest,hasPhoto:!!photo,stats:s,incomes:inc,incomeSum:inc.reduce((a,x)=>a+x.amount,0)}; })}; }
@@ -404,7 +404,7 @@ function demo(b){
       if(D.users.some(x=>x.phone===phone&&x.name!==name)) return {error:"bad",message:"Энэ утасны дугаар өөр хэрэглэгчид бүртгэлтэй байна"};
       if(ex&&ex.role==="Захирал"&&!dir) return {error:"bad",message:"Захирлын мэдээллийг засах эрхгүй"};
       const pr=u.projects==="*"||u.projects==null?null:(u.projects||[]).filter(Boolean); if(pr&&!pr.length) return {error:"bad",message:"Дор хаяж нэг төсөл сонгоно уу"};
-      const row={position:String(u.position||"").trim(),name,role:u.role,projects:pr,email:String(u.email||"").trim(),phone,pin:temp?"h:"+temp:ex.pin,mustChange:temp?true:ex.mustChange};
+      const row={position:String(u.position||"").trim(),name,role:u.role,projects:pr,email:String(u.email||"").trim(),phone,pin:temp?"h:"+temp:ex.pin,mustChange:temp?true:ex.mustChange,fin:u.role==="Төслийн удирдагч"&&(me.role==="Захирал"&&u.fin!=null?!!u.fin:!!ex?.fin)};
       if(ex) Object.assign(ex,row); else D.users.push(row); save(); return {users:D.users.map(pub)}; }
     case "deleteUser": { if(!boss&&me.role!=="Хүний нөөц") return deny; if(b.target===me.name) return {error:"bad",message:"Өөрийгөө устгах боломжгүй"};
       const ex=D.users.find(x=>x.name===b.target); if(ex?.role==="Захирал"&&!dir) return {error:"bad",message:"Захирлыг устгах эрхгүй"};
@@ -606,7 +606,7 @@ function setTabs(){
   const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
           :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
           :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
-          :isPM()?[PT,["wait","⏳","Батлах",pmPend],["dash","▦","Төсөл",0],GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
+          :isPM()?[PT,["wait","⏳","Батлах",pmPend],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
           :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,ME]
           :isHab()?[HT,GR,...NEW,MINE,ME]
           :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,ME]
@@ -649,15 +649,21 @@ function render(){
 }
 const demoBanner=()=>MODE==="demo"?`<div class="banner">Демо: жишээ өгөгдөл. Утас / PIN: Эрдэнэсанаа 99110001 / 20262026, Сараа (нягтлан) 99110002 / 55667788, Бат 99110003 / 135790, Дорж 99110004 / 246802, Ганаа (ХАБ инженер) 99110005 / 13572468, Болд (төслийн удирдагч) 99110006 / 24681357, Оюун (хүний нөөц) 99110007 / 97531864, Цэцэг (тогооч) 99110008 / 864209.</div>`:"";
 
+function tabList(){ const L={wait:r=>r.status===ST.WAIT&&(isBoss()||r.by!==S.user.name),pay:r=>r.status===ST.OK,all:()=>true,mine:r=>r.by===S.user.name}[S.tab]||(()=>true); return S.reqs.filter(L); }
+const catNm=c=>(S.meta?.categories||[]).find(x=>x[0]===c)?.[1]||c;
+function catChips(base){ const by={}; for(const r of base){ const c=r.cat||"Бусад"; (by[c]=by[c]||{n:0,sum:0}).n++; by[c].sum+=+r.amount||0; }
+  const cats=Object.entries(by).sort((a,b)=>b[1].sum-a[1].sum); if(S.rcat&&!by[S.rcat]) S.rcat=null; if(cats.length<2&&!S.rcat) return "";
+  const tot=base.reduce((a,r)=>a+(+r.amount||0),0), b=(k,l,n,sum)=>`<button data-rcat="${esc(k)}" aria-pressed="${(S.rcat||"")===k}" style="text-align:left"><span>${esc(l)} · ${n}</span><br><b style="font-size:13px">${fmt(sum)} ₮</b></button>`;
+  return `<div class="chips" style="flex-wrap:wrap">${b("","Бүгд",base.length,tot)}${cats.map(([c,x])=>b(c,catNm(c),x.n,x.sum)).join("")}</div>`; }
 function renderList(m){
-  const L={wait:r=>r.status===ST.WAIT&&(isBoss()||r.by!==S.user.name),pay:r=>r.status===ST.OK,all:()=>true,mine:r=>r.by===S.user.name}[S.tab]||(()=>true);
-  const list=S.reqs.filter(L);
+  const base=tabList(), list=S.rcat?base.filter(r=>(r.cat||"Бусад")===S.rcat):base, lsum=list.reduce((a,r)=>a+(+r.amount||0),0);
   const headings={wait:"Батлах хүсэлт",pay:"Зөвшөөрсөн, төлөх",all:"Бүх хүсэлт",mine:"Миний илгээсэн хүсэлт"};
   let h=demoBanner();
   if(isBoss()){ const pend=S.reqs.filter(r=>r.status===ST.WAIT).length, topay=S.reqs.filter(r=>r.status===ST.OK).length;
     h+=`<div class="seg"><button data-tab="wait" aria-pressed="${S.tab==="wait"}">⏳ Батлах${pend?` (${pend})`:""}</button><button data-tab="pay" aria-pressed="${S.tab==="pay"}">₮ Төлөх${topay?` (${topay})`:""}</button><button data-tab="all" aria-pressed="${S.tab==="all"}">☰ Бүгд</button></div>`; }
   if(S.tab==="all") h+=`<button class="primary big" data-go="new">＋ Шинэ хүсэлт илгээх</button>`;
-  h+=`<div class="urow" style="padding:2px 2px 0"><div class="nm small muted">${headings[S.tab]} · ${list.length}</div>${list.length?`<button data-xl="xlsx">⬇ Excel</button><button data-xl="pdf">⬇ PDF</button>`:""}</div>`;
+  h+=catChips(base);
+  h+=`<div class="urow" style="padding:2px 2px 0"><div class="nm small muted">${headings[S.tab]}${S.rcat?` · ${esc(catNm(S.rcat))}`:""} · ${list.length} · <b>${fmt(lsum)} ₮</b></div>${list.length?`<button data-xl="xlsx">⬇ Excel</button><button data-xl="pdf">⬇ PDF</button>`:""}</div>`;
   h+=list.length?list.map(card).join(""):`<div class="card empty">${S.tab==="wait"?"Батлах хүсэлт алга.":S.tab==="pay"?"Төлөх хүсэлт алга.":"Хүсэлт алга. “Шинэ хүсэлт” дээр дарж эхний хүсэлтээ илгээнэ үү."}</div>`;
   m.innerHTML=h;
 }
@@ -818,6 +824,8 @@ function renderUserEdit(m){
      <div class="small muted" style="margin-top:4px">Хэд хэдэн төсөл сонгож болно. «Бүх төсөл» сонговол шинээр нэмэгдэх төслүүд ч автоматаар орно.</div></div>
    <label class="chk"><input type="checkbox" id="u_canreq" ${u.canReq===false?"":"checked"}> Төлбөрийн хүсэлт илгээх эрхтэй</label>
    <label class="chk"><input type="checkbox" id="u_sched" ${u.sched?"checked":""}> 📊 Ажлын график хөтлөх (зөвхөн Инженер)</label>
+   ${isDir()?`<label class="chk"><input type="checkbox" id="u_fin" ${u.fin?"checked":""}> ▦ Төслийн тооцоо харах (зөвхөн Төслийн удирдагч)</label>
+   <div class="small muted" style="margin-top:-6px">Чагттай бол төслийн удирдагч өөрийн сонгосон төслийн орлого, зарлага, санхүүжилт, гэрээг «Төсөл» цонхноос харна. Компанийн ерөнхий санхүү, бусад төсөл харагдахгүй.</div>`:""}
    <div class="small muted" style="margin-top:-6px">Төсөл бүрт нэг л инженер график хөтөлнө. Энэ инженерт чагт тавихад ижил төслийн өмнөх хөтлөгчөөс эрх автоматаар хасагдана. Графикийг бүх ажилтан харна.</div>
    <div class="small muted" style="margin-top:-6px">Богино хугацааны, өндөр настай зэрэг хүсэлт илгээх шаардлагагүй ажилтанд чагтыг авна. Ирц, даалгавар, ХАБЭА хэвээр ажиллана.</div>
    <label class="f">Имэйл (шинэ хүсэлтийн мэдэгдэл авах бол)<input id="u_email" type="email" value="${esc(u.email)}" placeholder="заавал биш"></label>
@@ -1482,7 +1490,7 @@ function payCalc(u,ym,att,cfg){
 function demoHR(D,b,me){
   const td=new Date(Date.now()+8*36e5).toISOString().slice(0,10), dd=n=>dAdd(td,n), now=()=>new Date(Date.now()+8*36e5).toISOString().slice(0,16).replace("T"," ");
   if(!D.users.some(u=>u.role==="Төслийн удирдагч")){
-    D.users.push({name:"Болд",role:"Төслийн удирдагч",pin:"h:24681357",email:"",phone:"99110006",mustChange:false,projects:["ТТ2"],position:"Төслийн удирдагч",wageType:"Сар",wage:4500000,wdays:22});
+    D.users.push({name:"Болд",role:"Төслийн удирдагч",fin:true,pin:"h:24681357",email:"",phone:"99110006",mustChange:false,projects:["ТТ2"],position:"Төслийн удирдагч",wageType:"Сар",wage:4500000,wdays:22});
     D.users.push({name:"Оюун",role:"Хүний нөөц",pin:"h:97531864",email:"",phone:"99110007",mustChange:false,projects:null,position:"Хүний нөөцийн мэргэжилтэн",wageType:"Сар",wage:2200000,wdays:22});
     const W={"Бат":["Туслах ажилтан","Өдөр",85000],"Дорж":["Индүүний оператор","Өдөр",120000],"Ганаа":["ХАБ инженер","Сар",2800000],"Сараа":["Нягтлан бодогч","Сар",3000000],"Эрдэнэсанаа":["Гүйцэтгэх захирал","Сар",0]};
     D.users.forEach(u=>{ const w=W[u.name]; if(w){ u.position=w[0]; u.wageType=w[1]; u.wage=w[2]; u.wdays=22; } });
@@ -2450,7 +2458,7 @@ async function load(quiet){
     const r=await api("boot");
     S.meta=r.meta; S.reqs=r.reqs.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     if(r.projects) S.dash=r.projects;
-    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false; S.loansOpen=r.loansOpen||[]; S.emps=r.emps||[];
+    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false; S.pmFin=!!r.fin; S.loansOpen=r.loansOpen||[]; S.emps=r.emps||[];
     if(r.meal) setTimeout(()=>mealPopup(r.meal),400);
     if(r.hr){ const before=S.hrBadge?.newTasks; S.hrBadge=r.hr; if(r.hr.newTasks&&r.hr.newTasks!==before){ toast(`Танд ${r.hr.newTasks} шинэ даалгавар ирлээ`); try{ if(window.Notification&&Notification.permission==="granted") new Notification("Аасгалдай",{body:`${r.hr.newTasks} шинэ даалгавар`}); }catch(e){} } }
     if(r.hab){ S.habBadge=r.hab; if(r.hab.unread&&!S.habPopped&&!isHab()) loadHab().then(habPopup); }
@@ -2478,8 +2486,9 @@ document.addEventListener("click",async e=>{
   if(D.copy!=null) return copy(D.copy,D.label);
   if(D.dp){ S.dp=D.dp; render(); return; }
   if(D.xp){ const p=S.dash?.find(x=>x.code===S.dp); if(!p) return; return runExport(t,()=>D.xp==="xlsx"?exportProjectXlsx(p):exportProjectPdf(p)); }
-  if(D.xl){ const L={wait:r=>r.status===ST.WAIT,pay:r=>r.status===ST.OK}[S.tab]||(()=>true); const list=S.reqs.filter(L);
-    const title={wait:"Батлах хүсэлт",pay:"Төлөх хүсэлт",all:"Бүх гүйлгээ",mine:"Миний хүсэлт"}[S.tab]||"Гүйлгээ";
+  if(D.rcat!=null){ S.rcat=D.rcat||null; render(); return; }
+  if(D.xl){ const base=tabList(), list=S.rcat?base.filter(r=>(r.cat||"Бусад")===S.rcat):base;
+    const title=({wait:"Батлах хүсэлт",pay:"Төлөх хүсэлт",all:"Бүх гүйлгээ",mine:"Миний хүсэлт"}[S.tab]||"Гүйлгээ")+(S.rcat?" — "+catNm(S.rcat):"");
     return runExport(t,()=>D.xl==="xlsx"?exportListXlsx(list,title):exportListPdf(list,title)); }
   if(D.newproj!=null){ S.edit={isNew:true,code:"",name:"",active:true,contract:0,c1:0,c2:0,c3:0,c4:0,c5:0,pct:0.05}; S.editPhotos=null; render(); scrollTo(0,0); return; }
   if(D.editproj){ const p=S.dash?.find(x=>x.code===D.editproj); if(!p) return; S.edit={...p,isNew:false}; S.editPhotos=null; render(); scrollTo(0,0); return; }
@@ -2590,7 +2599,8 @@ document.addEventListener("submit",async e=>{
   }
   if(f.id==="userForm"){
     const u={name:$("#u_name").value.trim(),role:S.uedit.role,phone:$("#u_phone").value.replace(/\D/g,""),email:$("#u_email").value.trim(),position:$("#u_pos").value.trim(),tempPin:S.uedit.tempPin||"",projects:S.uedit.projects?S.uedit.projects:"*",
-      surname:$("#u_sur").value.trim(),given:$("#u_giv").value.trim(),age:$("#u_age").value.replace(/\D/g,""),sex:$("#u_sex").value,canReq:$("#u_canreq").checked,sched:$("#u_sched").checked};
+      surname:$("#u_sur").value.trim(),given:$("#u_giv").value.trim(),age:$("#u_age").value.replace(/\D/g,""),sex:$("#u_sex").value,canReq:$("#u_canreq").checked,sched:$("#u_sched").checked,...($("#u_fin")?{fin:$("#u_fin").checked}:{})};
+    if(u.fin&&u.role!=="Төслийн удирдагч") return showErr("#userErr","Төслийн тооцоо харах эрхийг зөвхөн Төслийн удирдагчид олгоно.");
     if(u.sched&&u.role!=="Инженер") return showErr("#userErr","Ажлын график хөтлөх эрхийг зөвхөн Инженер үүрэгтэй хүнд олгоно.");
     if(Array.isArray(u.projects)&&!u.projects.length) return showErr("#userErr","Ажиллах төслөө сонгоно уу (эсвэл «Бүх төсөл»).");
     if(!u.name) return showErr("#userErr","Нэрээ оруулна уу.");
@@ -2618,7 +2628,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026235152";
+const BUILD="20261026235725";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
