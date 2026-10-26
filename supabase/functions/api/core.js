@@ -453,6 +453,7 @@ function handle_(b) {
       case 'sched': return schedData_(me);
       case 'schedItem': schedItem_(me, b.it); return schedData_(me);
       case 'schedItemDel': schedItemDel_(me, b.id); return schedData_(me);
+      case 'schedBulk': schedBulk_(me, b.proj, b.items); return schedData_(me);
       case 'schedDay': schedDay_(me, b.proj, b.date, b.entries); return schedData_(me);
       case 'setLimit':
         if (!director) return deny_();
@@ -1610,6 +1611,30 @@ function schedItem_(me, it) {
     }
     var mx = 0; for (var j = 1; j < v.length; j++) if (String(v[j][1]) === proj) mx = Math.max(mx, num_(v[j][7]));
     sh.appendRow(['G' + new Date().getTime().toString(36) + Math.floor(Math.random() * 1296).toString(36), proj, name, unit, qty, st, en, mx + 1, me.name, new Date()]);
+  } finally { lock.releaseLock(); }
+}
+function schedBulk_(me, proj, items) {
+  proj = String(proj || '').trim();
+  if (!schedCan_(me, proj)) throw new Error('Энэ төслийн графикийг засах эрхгүй');
+  items = items || [];
+  if (!items.length) throw new Error('Оруулах ажил алга');
+  if (items.length > 300) throw new Error('Нэг удаад 300 хүртэл ажил оруулна');
+  var rows = items.map(function (it, k) {
+    var name = String(it.name || '').trim(), unit = String(it.unit || '').trim(), qty = num_(it.qty), st = schedDate_(it.start), en = schedDate_(it.end);
+    var at = (k + 1) + '-р мөр (' + (name || 'нэргүй') + '): ';
+    if (!name) throw new Error(at + 'ажлын нэр алга');
+    if (!(qty > 0)) throw new Error(at + 'тоо хэмжээ алга');
+    if (!st || !en) throw new Error(at + 'эхлэх, дуусах огноо буруу');
+    if (String(it.end) < String(it.start)) throw new Error(at + 'дуусах огноо эхлэхээс өмнө байна');
+    return [name, unit, qty, st, en];
+  });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = schedSheet_(), v = sh.getDataRange().getValues(), mx = 0, now = new Date(), base = now.getTime().toString(36);
+    for (var j = 1; j < v.length; j++) if (String(v[j][1]) === proj) mx = Math.max(mx, num_(v[j][7]));
+    rows.forEach(function (r, k) {
+      sh.appendRow(['G' + base + k.toString(36) + Math.floor(Math.random() * 1296).toString(36), proj, r[0], r[1], r[2], r[3], r[4], mx + k + 1, me.name, now]);
+    });
   } finally { lock.releaseLock(); }
 }
 function schedItemDel_(me, id) {

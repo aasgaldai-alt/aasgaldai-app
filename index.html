@@ -2098,6 +2098,7 @@ function renderSched(m){
   if(SC.view==="edit") return editForm(m);
   if(SC.view==="day") return dayForm(m);
   if(SC.view==="item") return itemView(m);
+  if(SC.view==="imp") return impView(m);
   const p=P.find(x=>x.code===SC.proj), items=D.items.filter(i=>i.proj===SC.proj).sort((a,b)=>a.ord-b.ord||a.start.localeCompare(b.start)), logs=D.logs.filter(l=>l.proj===SC.proj), ed=canEd(SC.proj);
   const sm=projSum(items,logs,D.today);
   let h=`<div class="chips">${P.map(x=>`<button data-schproj="${esc(x.code)}" aria-pressed="${x.code===SC.proj}">${esc(x.code)}</button>`).join("")}</div>`;
@@ -2105,7 +2106,8 @@ function renderSched(m){
     <div class="small muted" style="margin-top:2px">График хөтлөгч: ${p.editor?`<b>${esc(p.editor)}</b>${p.editorPhone?` · <a href="tel:${esc(p.editorPhone)}">${esc(p.editorPhone)}</a>`:""}`:"томилоогүй"}</div>
     ${sm?`<div class="gsum"><div><div class="small muted">Төлөвлөгөөгөөр</div><b>${pc(sm.plan)}</b></div><div><div class="small muted">Биелэлт</div><b class="t-${sm.st}">${pc(sm.act)}</b></div><div><div class="small muted">Зөрүү</div><b class="t-${sm.st}">${sm.diff>=0?"+":""}${pc(sm.diff)}</b></div></div>
       <div class="gbar"><div class="gp" style="width:${Math.min(sm.plan,100)}%"></div><div class="ga g-${sm.st}" style="width:${Math.min(sm.act,100)}%"></div></div>`:`<div class="small muted" style="margin-top:8px">Энэ төсөлд ажлын график хараахан оруулаагүй байна.</div>`}
-    ${ed?`<div class="actions" style="margin-top:10px"><button data-schnew>＋ Ажил нэмэх</button>${items.length?`<button class="primary" data-schday>✍ Өдрийн гүйцэтгэл</button>`:""}</div>`:""}</div>`;
+    ${ed?`<div class="actions" style="margin-top:10px"><button data-schnew>＋ Ажил нэмэх</button>${items.length?`<button class="primary" data-schday>✍ Өдрийн гүйцэтгэл</button>`:""}</div>
+      <div class="actions" style="margin-top:6px"><label class="btn" style="flex:1;text-align:center;cursor:pointer;border:1px solid var(--line,#ccd);border-radius:10px;padding:10px">📥 Excel-ээс олноор оруулах<input id="sc_imp" type="file" accept=".xlsx,.xls,.csv" hidden></label><button data-schtpl>⬇ Загвар</button></div>`:""}</div>`;
   if(items.length) h+=`<h3 class="sec">Календарчилсан график</h3>${gantt(items,logs,D.today)}${legend()}${expCard(p)}
     <h3 class="sec">Ажлын явц</h3>`+items.map(it=>{ const x=stat(it,logs,D.today);
       return `<button class="card req" data-schitem="${esc(it.id)}" style="display:block;width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(it.name)}</b><span class="st st-${x.st[0]}">${x.st[1]}</span></div>
@@ -2128,6 +2130,41 @@ function editForm(m){
     <button class="primary big" id="scSave" type="submit">Хадгалах</button>
     ${it.id?`<button type="button" class="danger" data-schdel="${esc(it.id)}">${SC.delAsk===it.id?"Дахин дарж устгана уу (гүйцэтгэлийн бүртгэл хамт устна)":"Ажлыг устгах"}</button>`:""}</form>`;
 }
+function impView(m){
+  const I=SC.imp, have=SC.data.items.filter(i=>i.proj===SC.proj).length;
+  m.innerHTML=`<button data-schback>‹ Буцах</button><div class="card" style="margin-top:10px;display:grid;gap:10px">
+    <h3 style="margin:0">Excel-ээс оруулах · ${esc(SC.proj)}</h3>
+    <div class="small muted">Файл: ${esc(I.file)} · <b>${I.items.length}</b> ажил олдлоо${I.bad.length?`, <b class="t-r">${I.bad.length}</b> мөрийг алгаслаа`:""}.${have?` Энэ төсөлд одоо ${have} ажил байгаа, шинэ ажлууд араас нь нэмэгдэнэ.`:""}</div>
+    ${I.bad.length?`<div class="banner">Алгассан мөрүүд:<br>${I.bad.slice(0,15).map(esc).join("<br>")}${I.bad.length>15?"<br>…":""}</div>`:""}
+    <div style="max-height:55vh;overflow:auto;border:1px solid #dde;border-radius:8px"><table class="gtbl" style="width:100%"><tr><th>№</th><th>Ажлын нэр</th><th>Хэмжээ</th><th>Эхлэх</th><th>Дуусах</th></tr>
+      ${I.items.map((it,k)=>`<tr><td>${k+1}</td><td style="text-align:left">${esc(it.name)}</td><td style="white-space:nowrap">${nf(it.qty)} ${esc(it.unit)}</td><td style="white-space:nowrap">${esc(it.start)}</td><td style="white-space:nowrap">${esc(it.end)}</td></tr>`).join("")}</table></div>
+    <div id="impErr" class="banner" hidden></div>
+    ${I.items.length?`<button class="primary big" data-schimpgo>✅ ${I.items.length} ажлыг графикт оруулах</button>`:""}</div>`;
+}
+function impDate(v,X){ if(v instanceof Date&&!isNaN(v)){ const d=new Date(v.getTime()+12*36e5); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  if(typeof v==="number"&&v>20000&&v<80000){ const o=X.SSF.parse_date_code(v); return o.y+"-"+String(o.m).padStart(2,"0")+"-"+String(o.d).padStart(2,"0"); }
+  const s=String(v||"").trim(); let m=s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/); if(m) return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
+  m=s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})/); if(m) return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0"); return ""; }
+const impNum=v=>typeof v==="number"?v:+String(v||"").replace(/[\s,]/g,"").replace(/[^\d.]/g,"")||0;
+async function impParse(file){
+  const X=await loadLib(LIB_XLSX,"XLSX"), wb=X.read(await file.arrayBuffer(),{cellDates:true}), ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:""});
+  let col={name:0,unit:1,qty:2,start:3,end:4}, from=0;
+  for(let r=0;r<Math.min(rows.length,40);r++){ const L=rows[r].map(x=>String(x).toLowerCase()); const f=re=>L.findIndex(x=>re.test(x));
+    const n=f(/ажлын нэр|^нэр|ажил/), st=f(/эхл/), en=f(/дуус/);
+    if(n>=0&&st>=0&&en>=0){ col={name:n,unit:f(/нэгж/),qty:f(/тоо|хэмжээ/),start:st,end:en}; from=r+1; break; } }
+  const items=[], bad=[];
+  for(let r=from;r<rows.length;r++){ const R=rows[r], g=k=>col[k]>=0?R[col[k]]:"";
+    const name=String(g("name")).replace(/\s+/g," ").trim(); if(!name) continue;
+    const qty=impNum(g("qty")), start=impDate(g("start"),X), end=impDate(g("end"),X);
+    if(!(qty>0)&&!start&&!end) continue; // бүлгийн гарчиг
+    const why=!(qty>0)?"тоо хэмжээ алга":!start||!end?"огноо буруу":end<start?"дуусах < эхлэх":"";
+    if(why){ bad.push(`${r+1}-р мөр: ${name.slice(0,60)} — ${why}`); continue; }
+    items.push({name:name.slice(0,200),unit:String(g("unit")).trim().slice(0,20),qty,start,end}); }
+  return {file:file.name,items,bad}; }
+async function impTemplate(){ const X=await loadLib(LIB_XLSX,"XLSX"), wb=X.utils.book_new();
+  const ws=X.utils.aoa_to_sheet([["Ажлын нэр","Нэгж","Тоо хэмжээ","Эхлэх","Дуусах"],["Асфальтбетон хучилт 5 см","м²",12000,"2027-05-01","2027-05-31"]]); ws["!cols"]=[{wch:50},{wch:8},{wch:12},{wch:12},{wch:12}];
+  X.utils.book_append_sheet(wb,ws,"График"); await saveBlob("Ажлын_график_загвар.xlsx",new Blob([X.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/octet-stream"})); }
 function dayForm(m){
   const D=SC.data, date=SC.date||(SC.date=D.today), items=D.items.filter(i=>i.proj===SC.proj).sort((a,b)=>a.ord-b.ord);
   const on=D.logs.filter(l=>l.proj===SC.proj&&l.date===date);
@@ -2155,11 +2192,15 @@ function itemView(m){
     <h3 class="sec">Өдөр бүрийн гүйцэтгэл</h3>${rows.length?`<div class="card" style="padding:0"><table class="gtbl"><tr><th>Огноо</th><th>Хийсэн</th><th>Нийт</th></tr>${rows.map(l=>`<tr><td>${esc(l.date)}${l.note?`<div class="small muted">${esc(l.note)}</div>`:""}</td><td>${nf(l.qty)}</td><td>${nf(l.cum)} <span class="small muted">${pc(it.qty?l.cum/it.qty*100:0)}</span></td></tr>`).join("")}</table></div>`:`<div class="card empty">Гүйцэтгэл бүртгэгдээгүй байна.</div>`}`;
 }
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-schproj],[data-schnew],[data-schday],[data-schitem],[data-schedit],[data-schback],[data-schdel],[data-schx]"); if(!t||S.tab!=="sched") return;
+  const t=ev.target.closest("[data-schproj],[data-schnew],[data-schday],[data-schitem],[data-schedit],[data-schback],[data-schdel],[data-schx],[data-schtpl],[data-schimpgo]"); if(!t||S.tab!=="sched") return;
   const d=t.dataset; ev.stopPropagation();
   if(d.schx){ const nm=xNames(SC.proj); nm.dir=($("#sx_dir")?.value||nm.dir).trim(); nm.eng=($("#sx_eng")?.value||nm.eng).trim(); try{ localStorage.setItem("aas_sx_"+SC.proj,JSON.stringify(nm)); }catch(e){}
     return runExport(t,()=>d.schx==="pdf"?schedPdf(SC.proj,nm):schedXlsx(SC.proj,nm)); }
   if(d.schproj!=null){ SC.proj=d.schproj; render(); return; }
+  if(t.hasAttribute("data-schtpl")){ try{ await impTemplate(); }catch(e){ toast(e.message); } return; }
+  if(t.hasAttribute("data-schimpgo")){ const n=SC.imp.items.length; t.disabled=true; t.textContent="Оруулж байна…";
+    try{ SC.data=await api("schedBulk",{proj:SC.proj,items:SC.imp.items}); SC.imp=null; SC.view="chart"; toast(n+" ажил графикт орлоо"); render(); scrollTo(0,0); }
+    catch(e){ showErr("#impErr",e.message); t.disabled=false; t.textContent=`✅ ${n} ажлыг графикт оруулах`; } return; }
   if(t.hasAttribute("data-schnew")){ SC.edit={proj:SC.proj,start:SC.data.today}; SC.view="edit"; SC.delAsk=null; render(); scrollTo(0,0); return; }
   if(t.hasAttribute("data-schday")){ SC.view="day"; SC.date=SC.data.today; render(); scrollTo(0,0); return; }
   if(d.schitem){ SC.item=d.schitem; SC.view="item"; render(); scrollTo(0,0); return; }
@@ -2168,7 +2209,9 @@ document.addEventListener("click",async ev=>{
   if(d.schdel){ if(SC.delAsk!==d.schdel){ SC.delAsk=d.schdel; render(); return; } t.disabled=true;
     try{ SC.data=await api("schedItemDel",{id:d.schdel}); SC.view="chart"; SC.delAsk=null; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
 },true);
-document.addEventListener("change",ev=>{ if(ev.target.id==="sd_date"&&S.tab==="sched"){ SC.date=ev.target.value||SC.data.today; render(); } },true);
+document.addEventListener("change",async ev=>{ if(ev.target.id==="sd_date"&&S.tab==="sched"){ SC.date=ev.target.value||SC.data.today; render(); }
+  if(ev.target.id==="sc_imp"&&S.tab==="sched"&&ev.target.files[0]){ const f=ev.target.files[0]; ev.target.value="";
+    try{ SC.imp=await impParse(f); SC.view="imp"; render(); scrollTo(0,0); }catch(e){ toast("Файл уншиж чадсангүй: "+e.message); } } },true);
 document.addEventListener("submit",async ev=>{
   const f=ev.target; if(f.id!=="schForm"&&f.id!=="schDay") return; ev.preventDefault(); ev.stopPropagation();
   if(f.id==="schForm"){
@@ -2563,7 +2606,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026232609";
+const BUILD="20261026233441";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
