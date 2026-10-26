@@ -434,9 +434,9 @@ let toastT; function toast(m){ let t=$(".toast"); if(!t){t=document.createElemen
 async function copy(text,label){ try{ await navigator.clipboard.writeText(text); toast(label+" хуулагдлаа"); }catch(e){ const el=document.createElement("textarea"); el.value=text; document.body.appendChild(el); el.select(); let ok=false; try{ok=document.execCommand("copy")}catch(x){} el.remove(); toast(ok?label+" хуулагдлаа":"Хуулж чадсангүй. Текст дээр удаан дараад хуулна уу."); } }
 const role=()=>S.user?.role; const isDir=()=>role()==="Захирал"; const isBoss=()=>role()==="Нягтлан"||isDir(); const isAdmin=()=>role()==="Админ"; const isMaster=()=>role()==="Мастер"; const isMech=()=>role()==="Механик"; const isStore=()=>role()==="Нярав"; const isOper=()=>role()==="Оператор"; const isEng=()=>role()==="Инженер";
 const canUsers=()=>isBoss()||role()==="Хүний нөөц"||isAdmin(); const canEquip=()=>isBoss()||isMech(); const fuelAll=()=>isBoss()||isMech()||isStore()||role()==="Төслийн удирдагч";
-const LIMIT=()=>S.meta?.approveLimit||10000000; const LLIM=()=>S.meta?.loanLimit||5000000;
+const LIMIT=()=>S.meta?.approveLimit||5000000; const LLIM=()=>S.meta?.loanLimit||5000000;
 const GEN="ЕРӨНХИЙ", RTS=["Зээл олгох","Урьдчилгаа цалин","Зээлийн үндсэн төлбөр","Зээлийн хүү, шимтгэл"]; const pLabel=c=>c===GEN?"🏢 Ерөнхий":c;
-const canApprove=r=>isDir()||(role()==="Төслийн удирдагч"&&r.proj!==GEN&&r.by!==S.user.name&&(!S.myProjects||S.myProjects.includes(r.proj))&&(+r.amount||0)<=(RTS.includes(r.rtype)?LLIM():LIMIT()));
+const canApprove=r=>isDir()||(role()==="Нягтлан"&&r.by!==S.user.name&&(!S.myProjects||S.myProjects.includes(r.proj))&&(+r.amount||0)<=LIMIT());
 const myProjs=()=>(S.meta?.projects||[]).filter(([c])=>c===GEN||!S.myProjects||S.myProjects.includes(c)).sort((a,b)=>(a[0]===GEN)-(b[0]===GEN));
 const stTag=s=>`<span class="st ${stCls[s]||""}">${esc(s)}</span>`;
 function compress(file,max=1280){ return new Promise((res,rej)=>{ const img=new Image(); const url=URL.createObjectURL(file); img.onload=()=>{ const sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Зураг уншиж чадсангүй")); img.src=url; }); }
@@ -606,7 +606,7 @@ function setTabs(){
   const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
           :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
           :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
-          :isPM()?[PT,["wait","⏳","Батлах",pmPend],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
+          :isPM()?[PT,["all","☰","Төслийн хүсэлт",0],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
           :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,ME]
           :isHab()?[HT,GR,...NEW,MINE,ME]
           :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,ME]
@@ -796,7 +796,7 @@ function renderSettings(m){
     return `<div class="card urow"><div class="nm"><b>${esc(u.name)}${me?" (та)":""}</b><span class="small muted">${esc(u.role)} · ${u.projects?esc(u.projects.join(", ")):"бүх төсөл"} · ${esc(u.phone||"утасгүй")}${u.email?" · "+esc(u.email):""}</span>${u.status==="Хүлээгдэж буй"?`<span class="st st-wait" style="display:inline-block;margin-top:4px">🆕 Шинэ бүртгэл: баталгаажуулна уу</span>`:u.mustChange?`<span class="st st-wait" style="display:inline-block;margin-top:4px">PIN солиогүй</span>`:""}${u.canReq===false?`<span class="tag" style="display:inline-block;margin-top:4px">Хүсэлт илгээхгүй</span>`:""}${u.sched?`<span class="tag" style="display:inline-block;margin-top:4px">📊 График хөтлөгч</span>`:""}</div>
      ${locked?"":`<button data-edituser="${esc(u.name)}">${u.status==="Хүлээгдэж буй"?"Баталгаажуулах":"Засах"}</button>`}
      ${locked||me?"":`<button class="danger" data-deluser="${esc(u.name)}">${S.delAsk===u.name?"Дахин дарж устга":"Хасах"}</button>`}</div>`; }).join("");
-  if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Төслийн удирдагч батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Үүнээс дээш дүнтэй хүсэлтийг зөвхөн захирал батална. Нягтлан батлахгүй, батлагдсан хүсэлтийг төлнө.</div><button data-setlimit="">Хадгалах</button></div>`+loanLimitHTML();
+  if(isDir()&&S.meta) h+=`<h3 class="sec">Батлах босго</h3><div class="card form"><label class="f">Нягтлан батлах дээд дүн, ₮<input id="limitIn" inputmode="numeric" value="${fmt(LIMIT())}"></label><div class="small muted">Энэ дүн хүртэлх бүх гүйлгээг (зээл, урьдчилгаа, компанийн ерөнхий зардал орно) нягтлан батлаад шууд төлж болно. Үүнээс дээшхийг зөвхөн захирал батална. Төслийн удирдагч батлахгүй.</div><button data-setlimit="">Хадгалах</button></div>`;
   if(isDir()&&S.meta) h+=`<h3 class="sec">Байршил</h3><div class="card"><label class="chk"><input type="checkbox" id="locReq" ${S.meta.locRequired!==false?"checked":""}> Ажилчдын хүсэлт заавал байршилтай байна</label><div class="small muted" style="margin-top:6px">Асаалттай үед утасны байршил тогтоогдохгүй бол ажилчин хүсэлт илгээж чадахгүй. GPS-ийн асуудал гарвал түр унтрааж болно.</div></div>`;
   if(isDir()&&S.dash){ h+=`<h3 class="sec">Төслүүд</h3><div class="small muted" style="margin:0 2px">Хүсэлт, санхүүжилт бүртгэгдээгүй төслийг л устгана. Бусдыг нь "Засах" дотроос хааж болно.</div>`+S.dash.map(p=>`<div class="card urow"><div class="nm"><b>${esc(p.code)}</b><span class="small muted">${esc(p.name)}${p.active?"":" · хаасан"}</span></div><button data-editproj="${esc(p.code)}">Засах</button><button class="danger" data-delproj="${esc(p.code)}">${S.projDel===p.code?"Дахин дарж устга":"Устгах"}</button></div>${S.projForce===p.code?`<div class="card form" style="border:2px solid #c62828"><div class="small"><b>${esc(S.projForceMsg||"")}</b></div>
      <div class="small" style="margin:6px 0">Бүрмөсөн устгавал энэ төслийн <b>бүх хүсэлт (зардал, төлбөр, зээл) болон санхүүжилт</b> хамт устаж, буцааж сэргээх боломжгүй. Хэрэв зөвхөн жагсаалтаас нуух бол "Засах" дотроос "Идэвхтэй" тэмдгийг арилгавал хангалттай.</div>
@@ -837,8 +837,8 @@ function renderUserEdit(m){
    <details><summary class="small">Үүрэг бүрийн эрх</summary><div class="small muted" style="margin-top:6px;line-height:1.5">
      <b>Инженер:</b> хүсэлт илгээх, ажлын график харах; «график хөтлөх» чагттай бол тухайн төслийн графикийг гаргаж, өдөр бүрийн гүйцэтгэлийг оруулна (санхүүгийн мэдээлэл харахгүй). <b>Ажилчин, Чанарын инженер:</b> хүсэлт илгээх (эрхтэй бол), өөрийн ирц, даалгавар, ХАБЭА. <b>Оператор:</b> + техникийн түлш, заалт оруулах. <b>Механик:</b> + техник бүртгэх, засах, бүх түлшний түүх. <b>Нярав:</b> + түлш олголт, бүх түүх.
      <b>Мастер:</b> бригадынхаа ирц тэмдэглэх, даалгавар өгөх. <b>Тогооч:</b> хоолны мэдэгдэл. <b>ХАБ инженер:</b> өдрийн ХАБ заавар, аюултай нөхцөлийн мэдээлэл.
-     <b>Төслийн удирдагч:</b> өөрийн төслийн хүсэлтийг ${fmt(LIMIT())} ₮ хүртэл батлах, ирц, даалгавар, чөлөө. <b>Хүний нөөц:</b> ажилтан бүртгэх, ирц. <b>Нягтлан:</b> батлагдсан хүсэлтийг төлөх, санхүү, цалин, албан бичиг (батлахгүй).
-     <b>Админ:</b> зөвхөн хэрэглэгч удирдах. <b>Захирал:</b> бүх эрх, бүх дүнгийн хүсэлт батлах. PIN: талбайн ажилтан 6, бусад 8 оронтой.</div></details>
+     <b>Төслийн удирдагч:</b> өөрийн төслийн хүсэлтийг харах (батлахгүй), ирц, даалгавар, чөлөө. <b>Хүний нөөц:</b> ажилтан бүртгэх, ирц. <b>Нягтлан:</b> ${fmt(LIMIT())} ₮ хүртэлх хүсэлтийг батлаад шууд төлөх, захирлын баталсныг төлөх, санхүү, цалин, албан бичиг.
+     <b>Админ:</b> зөвхөн хэрэглэгч удирдах. <b>Захирал:</b> бүх эрх, ${fmt(LIMIT())} ₮-өөс дээших бүх хүсэлтийг батлах. PIN: талбайн ажилтан 6, бусад 8 оронтой.</div></details>
    <div id="userErr" class="banner" hidden></div>
    <button class="primary big" type="submit">Хадгалах</button></form>`;
 }
@@ -879,10 +879,12 @@ function renderDetail(m,r){
   const rows=[["Хүлээн авагч",r.payee],["Утас",r.phone||"—"],["Банк",r.bank],["Дансны дугаар",r.acct],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]];
   h+=`<div class="card">${isBoss()&&r.status!==ST.NO?`<div class="small muted" style="margin-bottom:4px">Банкны апп руу хуулах</div>`:""}${rows.map(([k,v])=>`<div class="copyrow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${isBoss()?`<button data-copy="${esc(v)}" data-label="${k}">Хуулах</button>`:""}</div>`).join("")}</div>`;
   if(r.photo) h+=`<div class="card photo" id="photoBox"><button id="loadPhoto" class="big">Баримтын зураг харах</button></div>`;
-  const canNo=isBoss()||(isPM()&&r.by!==S.user.name);
-  if(r.status===ST.WAIT&&(canNo||canApprove(r))){ const lim=RTS.includes(r.rtype)?LLIM():LIMIT(), big=(+r.amount||0)>lim;
-    h+=`<div class="card form">${!canApprove(r)?`<div class="banner">${r.proj===GEN&&!isBoss()?"Компанийн ерөнхий зардлыг <b>захирал</b> батална.":big?`${fmt(lim)} ₮-өөс дээш тул <b>захирал</b> батална.`:r.by===S.user.name?"Өөрийн хүсэлтийг өөрөө батлахгүй.":isBoss()?"Нягтлан батлахгүй, батлагдсаны дараа төлнө. Төслийн удирдагч эсвэл захирал батална.":"Батлах эрхгүй."}</div>`:""}<label class="f">Тайлбар (буцаах бол заавал)<textarea id="note" placeholder="Жишээ: дансны дугаар буруу"></textarea></label>
-      <div class="actions">${canNo?`<button class="danger" data-st="${ST.NO}">Буцаах</button>`:""}${canApprove(r)?`<button class="primary" data-st="${ST.OK}">Зөвшөөрөх</button>`:""}</div></div>`; }
+  const canNo=isBoss();
+  if(r.status===ST.WAIT&&!isBoss()&&isPM()) h+=`<div class="banner">Хүсэлтийг ${fmt(LIMIT())} ₮ хүртэл бол нягтлан, түүнээс дээш бол захирал батална.</div>`;
+  if(r.status===ST.WAIT&&(canNo||canApprove(r))){ const big=(+r.amount||0)>LIMIT();
+    h+=`<div class="card form">${!canApprove(r)?`<div class="banner">${big?`${fmt(LIMIT())} ₮-өөс дээш тул <b>захирал</b> батална.`:r.by===S.user.name?"Өөрийн хүсэлтийг өөрөө батлахгүй, <b>захирал</b> батална.":"Батлах эрхгүй."}</div>`:""}<label class="f">Тайлбар (буцаах бол заавал)<textarea id="note" placeholder="Жишээ: дансны дугаар буруу"></textarea></label>
+      <div class="actions">${canNo?`<button class="danger" data-st="${ST.NO}">Буцаах</button>`:""}${canApprove(r)?`<button data-st="${ST.OK}">Зөвшөөрөх</button>`:""}</div>
+      ${canApprove(r)?`<button class="primary big" data-st="${ST.PAID}">✅ Батлаад төлсөн гэж тэмдэглэх</button><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу. Дараа төлөх бол «Зөвшөөрөх» дарна.</div>`:""}</div>`; }
   if(isBoss()){
     if(r.status===ST.OK) h+=`<div class="card form"><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу.</div><button class="primary big" data-st="${ST.PAID}">Төлсөн гэж тэмдэглэх</button></div>`;
   }
@@ -2330,7 +2332,7 @@ function newFormExtra(d){
   const boss=isBoss()||isPM(); if(!boss) return "";
   const T=["",...RTS];
   let h=`<div><div class="small muted" style="font-weight:500;margin-bottom:6px">Гүйлгээний төрөл</div><div class="chips" data-rtype>${T.map(k=>`<button type="button" data-rtv="${esc(k)}" aria-pressed="${(d.rtype||"")===k}">${k||"Зардал"}</button>`).join("")}</div>
-    ${d.rtype&&d.rtype!=="Зээлийн хүү, шимтгэл"?`<div class="small muted" style="margin-top:4px">Энэ гүйлгээ <b>зардалд орохгүй</b>: ${d.rtype==="Зээлийн үндсэн төлбөр"?"компанийн өр буурна":"авлага болж, буцаж төлөгдөнө"}. Төсөлд ${fmt(LLIM())} ₮ хүртэлхийг төслийн удирдагч, түүнээс дээшхийг захирал батална.</div>`:""}</div>`;
+    ${d.rtype&&d.rtype!=="Зээлийн хүү, шимтгэл"?`<div class="small muted" style="margin-top:4px">Энэ гүйлгээ <b>зардалд орохгүй</b>: ${d.rtype==="Зээлийн үндсэн төлбөр"?"компанийн өр буурна":"авлага болж, буцаж төлөгдөнө"}. ${fmt(LIMIT())} ₮ хүртэлхийг нягтлан, түүнээс дээшхийг захирал батална.</div>`:""}</div>`;
   if(d.rtype==="Урьдчилгаа цалин") h+=`<div class="row2"><label class="f">Ажилтан<select id="f_emp"><option value="">Сонгох</option>${(S.emps||[]).map(n=>`<option${d.emp===n?" selected":""}>${esc(n)}</option>`).join("")}</select></label>
     <label class="f">Хэдэн сараар суутгах<select id="f_months">${[1,2,3,4,5,6,9,12].map(k=>`<option value="${k}"${+(d.months||1)===k?" selected":""}>${k} сар</option>`).join("")}</select></label></div>`;
   if(d.rtype==="Зээл олгох") h+=`<div class="row2"><label class="f">Буцаан төлөх огноо<input id="f_due" type="date" value="${esc(d.due||"")}"></label><label class="f">Сарын хүү, % (заавал биш)<input id="f_rate" inputmode="decimal" value="${esc(d.rate||"")}" placeholder="0"></label></div>`;
@@ -2363,7 +2365,7 @@ function renderCompany(m,head){
   const s=FG.st, cats=Object.entries(s.cats).sort((a,b)=>b[1]-a[1]);
   h+=`<h3 class="sec">Компанийн ерөнхий зардал</h3><div class="stat3"><div class="card ok"><div class="l">Баталгаажсан</div><div class="c">${s.ok.n+s.paid.n}</div><div class="s">${fmt(s.ok.sum+s.paid.sum)} ₮</div></div><div class="card wt"><div class="l">Хүлээгдэж буй</div><div class="c">${s.wait.n}</div><div class="s">${fmt(s.wait.sum)} ₮</div></div><div class="card no"><div class="l">Буцаасан</div><div class="c">${s.no.n}</div><div class="s">${fmt(s.no.sum)} ₮</div></div></div>
     ${cats.length?`<div class="card hb">${cats.map(([c,a])=>`<div class="r"><span>${esc(c)}</span><span class="t"><i style="width:${Math.max(2,a/cats[0][1]*100)}%"></i></span><span class="n">${fmt(a)}</span></div>`).join("")}</div>`:""}
-    <div class="small muted">Ажилчид «Шинэ хүсэлт» дээр төсөл сонгохдоо «🏢 Ерөнхий»-г сонгож илгээнэ. Зөвхөн захирал батална.</div>`;
+    <div class="small muted">Ажилчид «Шинэ хүсэлт» дээр төсөл сонгохдоо «🏢 Ерөнхий»-г сонгож илгээнэ. ${fmt(LIMIT())} ₮ хүртэлхийг нягтлан, түүнээс дээшхийг захирал батална.</div>`;
   h+=loansBlock();
   m.innerHTML=h;
 }
@@ -2628,7 +2630,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261026235725";
+const BUILD="20261027001908";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

@@ -266,14 +266,13 @@ function isEng_(u) { return u.role === 'Инженер'; }
 function canUsers_(u) { return isBoss_(u) || isHR_(u) || isAdmin_(u); }
 function fuelView_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u) || isPM_(u); }
 function fuelAdd_(u) { return isBoss_(u) || isMech_(u) || isStore_(u) || isOper_(u); }
-function approveLimit_() { return num_(PropertiesService.getScriptProperties().getProperty('APPROVE_LIMIT')) || 10000000; }
-// Батлах эрх: 10 сая хүртэл — тухайн төслийн удирдагч эсвэл захирал; түүнээс дээш — зөвхөн захирал. Нягтлан батлахгүй, зөвхөн төлнө/буцаана.
+function approveLimit_() { return num_(PropertiesService.getScriptProperties().getProperty('ACC_LIMIT')) || 5000000; }
+// Батлах эрх: босго (анх 5 сая) хүртэлх бүх гүйлгээг нягтлан батлаад шууд төлж болно; түүнээс дээш — зөвхөн захирал.
+// Төслийн удирдагч батлахгүй, буцаахгүй (зөвхөн өөрийн төслийн хүсэлтийг харна).
 function canApprove_(u, r) {
-  if (r.by === u.name && !isDir_(u)) return false;
   if (isDir_(u)) return true;
-  if (r.proj === GEN) return false; // компанийн ерөнхий зардлыг зөвхөн захирал
-  var lim = RT_ALL.indexOf(r.rtype) >= 0 ? loanLimit_() : approveLimit_();
-  return isPM_(u) && canProj_(u, r.proj) && num_(r.amount) <= lim;
+  if (r.by === u.name) return false;
+  return u.role === 'Нягтлан' && canProj_(u, r.proj) && num_(r.amount) <= approveLimit_();
 }
 function pmSees_(u, r) { return isPM_(u) && r.proj !== GEN && canProj_(u, r.proj); }
 function isCook_(u) { return u.role === 'Тогооч'; }
@@ -391,7 +390,7 @@ function handle_(b) {
         return { reqs: all.slice(-500) };
       case 'create': return { req: create_(me, b.req, b.photo) };
       case 'status':
-        if (!boss && !isPM_(me)) return deny_();
+        if (!boss) return deny_();
         return { req: setStatus_(me, b.id, b.status, b.note) };
       case 'photo':
         var r = rows_().filter(function (x) { return x.id === b.id; })[0];
@@ -462,7 +461,7 @@ function handle_(b) {
       case 'schedDay': schedDay_(me, b.proj, b.date, b.entries); return schedData_(me);
       case 'setLimit':
         if (!director) return deny_();
-        PropertiesService.getScriptProperties().setProperty('APPROVE_LIMIT', String(Math.round(num_(b.limit)) || 10000000));
+        PropertiesService.getScriptProperties().setProperty('ACC_LIMIT', String(Math.round(num_(b.limit)) || 5000000));
         CacheService.getScriptCache().remove('meta'); return meta_();
       case 'letters':
         if (!isBoss_(me)) return deny_();
@@ -932,10 +931,11 @@ function setStatus_(me, id, status, note) {
   for (var i = 1; i < v.length; i++) {
     if (v[i][0] === id) {
       var cur = v[i][12], rq = { by: String(v[i][2]), proj: String(v[i][3]), amount: num_(v[i][10]), rtype: String(v[i][21] || '') };
-      if (status === ST.OK && !canApprove_(me, rq)) throw new Error(rq.by === me.name ? 'Өөрийн хүсэлтийг өөрөө батлах боломжгүй' : rq.proj === GEN ? 'Компанийн ерөнхий зардлыг зөвхөн захирал батална' : isPM_(me) && rq.amount > (RT_ALL.indexOf(rq.rtype) >= 0 ? loanLimit_() : approveLimit_()) ? (RT_ALL.indexOf(rq.rtype) >= 0 ? loanLimit_() : approveLimit_()).toLocaleString() + '₮-өөс дээш хүсэлтийг зөвхөн захирал батална' : 'Энэ хүсэлтийг батлах эрхгүй');
-      if (status === ST.NO && !isBoss_(me) && !pmSees_(me, rq)) throw new Error('Буцаах эрхгүй');
+      var direct = status === ST.PAID && cur === ST.WAIT; // батлаад шууд төлөх
+      if ((status === ST.OK || direct) && !canApprove_(me, rq)) throw new Error(rq.by === me.name ? 'Өөрийн хүсэлтийг өөрөө батлах боломжгүй' : rq.amount > approveLimit_() ? approveLimit_().toLocaleString() + '₮-өөс дээш гүйлгээг зөвхөн захирал батална' : 'Энэ хүсэлтийг батлах эрхгүй');
+      if (status === ST.NO && !isBoss_(me)) throw new Error('Буцаах эрхгүй');
       if (status === ST.PAID && !isBoss_(me)) throw new Error('Төлбөрийг зөвхөн нягтлан, захирал тэмдэглэнэ');
-      if (status === ST.PAID && cur !== ST.OK) throw new Error('Эхлээд зөвшөөрөх шаардлагатай');
+      if (status === ST.PAID && cur !== ST.OK && !direct) throw new Error('Эхлээд зөвшөөрөх шаардлагатай');
       if ((status === ST.OK || status === ST.NO) && cur !== ST.WAIT) throw new Error('Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн');
       sh.getRange(i + 1, 13).setValue(status);
       sh.getRange(i + 1, 14).setValue(me.name);
@@ -1936,7 +1936,7 @@ function notifyPlan_(app, b, out) {
     case "create": {
       const r = out.req; if (!r) return [];
       const big = Number(r.amount) > app.approveLimit_();
-      return [{ to: names((u) => app.canApprove_(u, r) && (app.isDir_(u) || app.canProj_(u, r.proj))), title: (big ? "💰 Батлах (захирал) · " : "💰 Батлах · ") + r.proj, body: me.name + ": " + cut(r.what, 60) + " — " + money(r.amount), tag: "req-" + r.id }];
+      return [{ to: names((u) => app.canApprove_(u, r)), title: (big ? "💰 Батлах (захирал) · " : "💰 Батлах · ") + r.proj, body: me.name + ": " + cut(r.what, 60) + " — " + money(r.amount), tag: "req-" + r.id }];
     }
     case "status": {
       const r = out.req; if (!r) return [];
