@@ -275,7 +275,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhoto:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -378,12 +378,16 @@ function demo(b){
       (D.incomes=D.incomes||[]).push({id,date:f.date,proj:f.proj,desc:String(f.desc||"").trim(),amount:num(f.amount),vat:f.vat,photo:b.photo?"demo":"",by:me.name,note:f.note||""}); save(); return {income:{id}}; }
     case "deleteIncome": { if(!dir) return deny; D.incomes=(D.incomes||[]).filter(x=>x.id!==b.id); save(); return {ok:true}; }
     case "incomePhoto": return boss?{data:store.get("aas_dip_"+b.id)||""}:deny;
-    case "contract": { if(!boss) return deny; const p=D.projects.find(x=>x.code===b.code); return {data:p?.photo?store.get("aas_dct_"+p.code)||"":""}; }
+    case "contract": { if(!boss) return deny; const p=D.projects.find(x=>x.code===b.code); const n=p?.photo?(+p.pages||1):0, pg=Math.max(0,Math.min(n-1,+b.page||0)); return {data:n?store.get("aas_dct_"+p.code+(pg?"_"+pg:""))||"":"",page:pg,pages:n}; }
+    case "addContractPages": { if(!dir) return deny; const p=D.projects.find(x=>x.code===b.code); if(!p) return {error:"bad",message:"Төсөл олдсонгүй"}; let n=p.photo?(+p.pages||1):0;
+      (b.photos||[]).forEach(d=>{ store.set("aas_dct_"+p.code+(n?"_"+n:""),d); n++; }); if(n){ p.photo="demo"; p.pages=n; } save(); return {pages:n}; }
     case "saveProject": { if(!dir) return deny; const p=b.project; const code=String(p.code||"").trim().toUpperCase();
       if(!code||!String(p.name||"").trim()) return {error:"bad",message:"Төслийн код, нэрийг оруулна уу"};
       let ex=D.projects.find(x=>x.code===code); if(p.isNew&&ex) return {error:"bad",message:"Ийм кодтой төсөл байна"};
       const row={lat:num(p.lat)||"",lng:num(p.lng)||"",code,name:p.name.trim(),active:p.active!==false,contract:num(p.contract),c1:num(p.c1),c2:num(p.c2),c3:num(p.c3),c4:num(p.c4),c5:num(p.c5),pct:+p.pct||0,photo:ex?.photo||""};
-      if(b.photo){ store.set("aas_dct_"+code,b.photo); row.photo="demo"; }
+      row.pages=ex?.pages||(row.photo?1:0);
+      if(b.photos?.length){ b.photos.forEach((d,i)=>store.set("aas_dct_"+code+(i?"_"+i:""),d)); row.photo="demo"; row.pages=b.photos.length; }
+      else if(b.photo){ store.set("aas_dct_"+code,b.photo); row.photo="demo"; row.pages=1; }
       if(ex) Object.assign(ex,row); else D.projects.push(row); save(); return {project:row}; }
     case "userList": return boss||me.role==="Хүний нөөц"?{users:D.users.map(pub)}:deny;
     case "saveUser": { if(!boss&&me.role!=="Хүний нөөц") return deny; if(!boss&&["Нягтлан","Админ","Захирал"].includes(b.user.role)) return {error:"bad",message:"Хүний нөөц энэ эрхийг олгох боломжгүй"}; const u=b.user, name=String(u.name||"").trim(), phone=String(u.phone||"").replace(/\D/g,""), temp=String(u.tempPin||"");
@@ -434,6 +438,16 @@ const canApprove=r=>isDir()||(role()==="Төслийн удирдагч"&&r.proj
 const myProjs=()=>(S.meta?.projects||[]).filter(([c])=>c===GEN||!S.myProjects||S.myProjects.includes(c)).sort((a,b)=>(a[0]===GEN)-(b[0]===GEN));
 const stTag=s=>`<span class="st ${stCls[s]||""}">${esc(s)}</span>`;
 function compress(file,max=1280){ return new Promise((res,rej)=>{ const img=new Image(); const url=URL.createObjectURL(file); img.onload=()=>{ const sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Зураг уншиж чадсангүй")); img.src=url; }); }
+const CT_MAX=40, LIB_PDFJS=()=>CDN+"ajax/libs/pdf.js/3.11.174/";
+async function pdfPages(file,max=1700,onPage){ const L=await loadLib(LIB_PDFJS()+"pdf.min.js","pdfjsLib"); L.GlobalWorkerOptions.workerSrc=LIB_PDFJS()+"pdf.worker.min.js";
+  const doc=await L.getDocument({data:await file.arrayBuffer()}).promise, out=[];
+  for(let i=1;i<=doc.numPages;i++){ const pg=await doc.getPage(i), v0=pg.getViewport({scale:1}), vp=pg.getViewport({scale:Math.min(3,max/Math.max(v0.width,v0.height))});
+    const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height); const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:g,viewport:vp}).promise; out.push(c.toDataURL("image/jpeg",0.72)); pg.cleanup(); if(onPage) onPage(i,doc.numPages); }
+  doc.destroy(); return out; }
+function ctPrev(p){ const L=S.editPhotos||[]; if(!L.length) return p?.hasPhoto?`<div class="small muted">Хуулбар хадгалагдсан (${p.pages||1} хуудас). Шинэ файл сонговол бүхэлд нь солигдоно.</div>`:"";
+  return `<div class="small muted" style="margin:6px 0">${L.length} хуудас сонгогдлоо. Дахин файл сонговол араас нь нэмэгдэнэ. <button type="button" data-clearct style="flex:none;padding:4px 10px;font-size:13px">Цэвэрлэх</button></div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">${L.map((d,i)=>`<div class="photo" style="position:relative"><img src="${d}" alt="Хуудас ${i+1}"><span class="small" style="position:absolute;left:4px;top:4px;background:#000a;color:#fff;border-radius:4px;padding:0 5px">${i+1}</span></div>`).join("")}</div>`; }
 const mInput=(id,label,val,ph="0")=>`<label class="f">${label}<input id="${id}" data-money value="${val?fmt(val):""}" inputmode="numeric" placeholder="${ph}"></label>`;
 
 const CDN="https:"+"/"+"/cdnjs.cloudflare.com/";
@@ -663,7 +677,7 @@ function renderDash(m){
   const F=fin(p), s=F.st;
   h+=`<div class="card"><div style="font-weight:600;font-size:16px">${esc(p.name)}</div><div class="small muted">${esc(p.code)}</div>
     <div class="actions" style="margin-top:10px"><button data-xp="xlsx">⬇ Excel тайлан</button><button data-xp="pdf">⬇ PDF тайлан</button></div>
-    <div class="actions" style="margin-top:8px">${p.hasPhoto?`<button data-contract="${esc(p.code)}">Гэрээний хуулбар</button>`:""}${isDir()?`<button data-editproj="${esc(p.code)}">Мэдээлэл засах</button>`:""}</div>
+    <div class="actions" style="margin-top:8px">${p.hasPhoto?`<button data-contract="${esc(p.code)}">Гэрээний хуулбар${p.pages>1?` (${p.pages} хуудас)`:""}</button>`:""}${isDir()?`<button data-editproj="${esc(p.code)}">Мэдээлэл засах</button>`:""}</div>
     <div id="contractBox" class="photo" style="margin-top:10px"></div></div>`;
   if(!p.contract) h+=`<div class="banner">Гэрээний дүн оруулаагүй тул орлого, ашиг тооцогдохгүй байна.${isDir()?" “Мэдээлэл засах” дээр дарж оруулна уу.":" Захирал оруулна."}</div>`;
   h+=`<div class="card"><div class="pl">
@@ -713,8 +727,8 @@ function renderProjEdit(m){
    <div class="row2"><label class="f">Төслийн код<input id="p_code" value="${esc(p.code)}" ${p.isNew?"":"readonly"} placeholder="ТТ3" maxlength="8"></label>
    <label class="f">Төлөв<span class="chk" style="padding:11px 0"><input type="checkbox" id="p_active" ${p.active!==false?"checked":""}> Идэвхтэй</span></label></div>
    <label class="f">Төслийн нэр<input id="p_name" value="${esc(p.name)}" placeholder="Жишээ: Лүн уурхайн зам"></label>
-   <label class="f">Гэрээний хуулбар (зураг)<input id="p_photo" type="file" accept="${IMG_ACCEPT}"></label>
-   <div id="p_prev" class="photo">${S.editPhoto?`<img src="${S.editPhoto}" alt="Гэрээний хуулбар">`:p.hasPhoto?`<div class="small muted">Хуулбар хадгалагдсан байна. Шинэ зураг сонговол солигдоно.</div>`:""}</div>
+   <label class="f">Гэрээний хуулбар (олон зураг эсвэл PDF, ${CT_MAX} хүртэл хуудас)<input id="p_photo" type="file" multiple accept="${IMG_ACCEPT},application/pdf,.pdf"></label>
+   <div id="p_prev">${ctPrev(p)}</div>
    ${mInput("p_contract","Гэрээний нийт дүн, ₮",p.contract)}
    ${COSTS.map(([k,l])=>mInput("p_"+k,l+", ₮",p[k])).join("")}
    <label class="f">Талбайн байршил (өргөрөг, уртраг)<input id="p_site" value="${p.lat&&p.lng?esc(p.lat+", "+p.lng):""}" placeholder="43.6312, 105.5241" inputmode="decimal"></label>
@@ -2407,8 +2421,9 @@ document.addEventListener("click",async e=>{
   if(D.xl){ const L={wait:r=>r.status===ST.WAIT,pay:r=>r.status===ST.OK}[S.tab]||(()=>true); const list=S.reqs.filter(L);
     const title={wait:"Батлах хүсэлт",pay:"Төлөх хүсэлт",all:"Бүх гүйлгээ",mine:"Миний хүсэлт"}[S.tab]||"Гүйлгээ";
     return runExport(t,()=>D.xl==="xlsx"?exportListXlsx(list,title):exportListPdf(list,title)); }
-  if(D.newproj!=null){ S.edit={isNew:true,code:"",name:"",active:true,contract:0,c1:0,c2:0,c3:0,c4:0,c5:0,pct:0.05}; S.editPhoto=null; render(); scrollTo(0,0); return; }
-  if(D.editproj){ const p=S.dash?.find(x=>x.code===D.editproj); if(!p) return; S.edit={...p,isNew:false}; S.editPhoto=null; render(); scrollTo(0,0); return; }
+  if(D.newproj!=null){ S.edit={isNew:true,code:"",name:"",active:true,contract:0,c1:0,c2:0,c3:0,c4:0,c5:0,pct:0.05}; S.editPhotos=null; render(); scrollTo(0,0); return; }
+  if(D.editproj){ const p=S.dash?.find(x=>x.code===D.editproj); if(!p) return; S.edit={...p,isNew:false}; S.editPhotos=null; render(); scrollTo(0,0); return; }
+  if(D.clearct!=null){ S.editPhotos=null; $("#p_prev").innerHTML=ctPrev(S.edit); return; }
   if(D.cancelEdit!=null){ S.edit=null; render(); return; }
   if(D.sitehere!=null){ t.disabled=true; t.textContent="Тогтоож байна…"; try{ const l=await getLoc(); $("#p_site").value=l.lat.toFixed(6)+", "+l.lng.toFixed(6); toast("Байршил тохирлоо (±"+l.acc+" м)"); }catch(err){ toast("Байршил олдсонгүй. "+LOC_HELP); } t.disabled=false; t.textContent="📍 Одоогийн байршлаар тохируулах"; return; }
   if(D.delproj){ if(S.projDel!==D.delproj){ S.projDel=D.delproj; render(); return; } t.disabled=true;
@@ -2419,7 +2434,12 @@ document.addEventListener("click",async e=>{
   if(t.closest("[data-ichip]")){ S.incEdit.vat=D.v; t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
   if(D.incphoto){ t.disabled=true; try{ const r=await api("incomePhoto",{id:D.incphoto}); document.getElementById("ip_"+D.incphoto).innerHTML=r.data?`<img src="${r.data}" alt="Баримт">`:`<div class="small muted">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(D.delinc){ if(S.incDel!==D.delinc){ S.incDel=D.delinc; render(); return; } t.disabled=true; try{ await api("deleteIncome",{id:D.delinc}); S.incDel=null; toast("Устгалаа"); await loadDash(); }catch(err){ toast(err.message); t.disabled=false; } return; }
-  if(D.contract){ t.disabled=true; t.textContent="Ачаалж байна…"; try{ const r=await api("contract",{code:D.contract}); $("#contractBox").innerHTML=r.data?`<img src="${r.data}" alt="Гэрээний хуулбар">`:`<div class="small muted">Хуулбар олдсонгүй.</div>`; t.textContent="Гэрээний хуулбар"; }catch(err){ toast(err.message); t.disabled=false; } return; }
+  if(D.contract){ const lbl=t.textContent, box=$("#contractBox"); t.disabled=true; t.textContent="Ачаалж байна…"; box.innerHTML="";
+    try{ let n=1; for(let i=0;i<n;i++){ const r=await api("contract",{code:D.contract,page:i}); n=r.pages||(r.data?1:0);
+        if(r.data) box.insertAdjacentHTML("beforeend",`${n>1?`<div class="small muted" style="margin:8px 0 4px">Хуудас ${i+1} / ${n}</div>`:""}<img src="${r.data}" alt="Гэрээний хуулбар, хуудас ${i+1}">`);
+        if(n>1) t.textContent=`Ачаалж байна… ${Math.min(i+1,n)}/${n}`; }
+      if(!box.innerHTML) box.innerHTML=`<div class="small muted">Хуулбар олдсонгүй.</div>`; t.textContent=lbl; }
+    catch(err){ toast(err.message); t.disabled=false; t.textContent=lbl; } return; }
   if(D.newuser!=null){ S.uedit={isNew:true,name:"",role:"Ажилчин",phone:"",email:"",projects:[],canReq:true,tempPin:genPin("Ажилчин")}; render(); scrollTo(0,0); return; }
   if(D.edituser){ const u=S.users.find(x=>x.name===D.edituser); S.uedit={...u,projects:u.projects?[...u.projects]:null,isNew:false,tempPin:""}; render(); scrollTo(0,0); return; }
   if(D.cancelUser!=null){ S.uedit=null; render(); return; }
@@ -2456,7 +2476,12 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",async e=>{
   if(e.target.id==="f_photo"&&e.target.files[0]){ try{ S.photo=await compress(e.target.files[0]); $("#photoPrev").innerHTML=`<img src="${S.photo}" alt="Баримтын зураг">`; }catch(err){ toast(err.message); } }
-  if(e.target.id==="p_photo"&&e.target.files[0]){ try{ S.editPhoto=await compress(e.target.files[0],1800); $("#p_prev").innerHTML=`<img src="${S.editPhoto}" alt="Гэрээний хуулбар">`; }catch(err){ toast(err.message); } }
+  if(e.target.id==="p_photo"&&e.target.files.length){ const el=e.target, files=[...el.files], pv=$("#p_prev"), L=S.editPhotos=S.editPhotos||[]; el.disabled=true;
+    try{ for(const f of files){ if(L.length>=CT_MAX){ toast(`Хамгийн ихдээ ${CT_MAX} хуудас`); break; }
+        if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){ const pages=await pdfPages(f,1700,(i,n)=>{ pv.innerHTML=`<div class="small muted">PDF уншиж байна… ${i}/${n}</div>`; }); L.push(...pages.slice(0,CT_MAX-L.length)); if(L.length>=CT_MAX&&pages.length) toast(`Хамгийн ихдээ ${CT_MAX} хуудас`); }
+        else L.push(await compress(f,1800)); }
+    }catch(err){ toast(err.message||"Файл уншиж чадсангүй"); }
+    el.disabled=false; el.value=""; if(!L.length) S.editPhotos=null; pv.innerHTML=ctPrev(S.edit); }
   if(e.target.id==="i_photo"&&e.target.files[0]){ try{ S.incPhoto=await compress(e.target.files[0],1800); $("#i_prev").innerHTML=`<img src="${S.incPhoto}" alt="Баримт">`; }catch(err){ toast(err.message); } }
   if(e.target.id==="f_bank") S.draft.bank=e.target.value;
   if(e.target.id==="p_active") calcProj();
@@ -2487,7 +2512,9 @@ document.addEventListener("submit",async e=>{
   if(f.id==="projForm"){
     const p=readProj(); if(!p.code||!p.name.trim()) return showErr("#projErr","Төслийн код, нэрийг оруулна уу.");
     const b=$("#projSave"); b.disabled=true; b.textContent="Хадгалж байна…";
-    try{ await api("saveProject",{project:p,photo:S.editPhoto||""}); S.edit=null; S.editPhoto=null; S.dash=null; S.meta=null; S.dp=p.code; S.tab="dash"; toast("Хадгалагдлаа"); render(); load(true); scrollTo(0,0); }
+    try{ const L=S.editPhotos||[], B=4; await api("saveProject",{project:p,photos:L.slice(0,B)});
+      for(let i=B;i<L.length;i+=B){ b.textContent=`Хуудас хадгалж байна… ${i}/${L.length}`; await api("addContractPages",{code:p.code.trim().toUpperCase(),photos:L.slice(i,i+B)}); }
+      S.edit=null; S.editPhotos=null; S.dash=null; S.meta=null; S.dp=p.code; S.tab="dash"; toast("Хадгалагдлаа"); render(); load(true); scrollTo(0,0); }
     catch(err){ showErr("#projErr",err.message); b.disabled=false; b.textContent="Хадгалах"; }
   }
   if(f.id==="incForm"){
@@ -2527,7 +2554,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261023142321";
+const BUILD="20261026170646";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

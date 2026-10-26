@@ -400,10 +400,15 @@ function handle_(b) {
       case 'contract':
         if (!boss) return deny_();
         var p = projects_().filter(function (x) { return x.code === b.code; })[0];
-        return { data: p && p.photo ? fileData_(p.photo) : '' };
+        var cids = p && p.photo ? String(p.photo).split(',').filter(String) : [];
+        var pg = Math.max(0, Math.min(cids.length - 1, +b.page || 0));
+        return { data: cids.length ? fileData_(cids[pg]) : '', page: pg, pages: cids.length };
       case 'saveProject':
         if (!director) return deny_();
-        return { project: saveProject_(b.project, b.photo) };
+        return { project: saveProject_(b.project, b.photo, b.photos) };
+      case 'addContractPages':
+        if (!director) return deny_();
+        return { pages: addContractPages_(b.code, b.photos) };
       case 'deleteProject':
         if (!director) return deny_();
         deleteProject_(b.code); return { ok: true };
@@ -761,7 +766,7 @@ function dashboard_(rowsOpt) {
       s[k].n++; s[k].sum += r.amount;
       if (k === 'ok' || k === 'paid') { s.cats[r.cat] = (s.cats[r.cat] || 0) + r.amount; if (r.vat === 'НӨАТ-тай') { s.vatSum += r.amount; s.vatN++; } else if (r.ebarimt === 'Тийм') { s.eboSum += r.amount; s.eboN++; } }
     });
-    p.stats = s; p.hasPhoto = !!p.photo; delete p.photo;
+    p.stats = s; p.hasPhoto = !!p.photo; p.pages = p.photo ? String(p.photo).split(',').filter(String).length : 0; delete p.photo;
     p.incomes = incomes.filter(function (x) { return x.proj === p.code; }).map(function (x) {
       return { id: x.id, date: x.date, desc: x.desc, amount: x.amount, vat: x.vat, by: x.by, note: x.note, hasPhoto: !!x.photo };
     });
@@ -770,7 +775,24 @@ function dashboard_(rowsOpt) {
   });
   return out;
 }
-function saveProject_(p, photo) {
+var CONTRACT_MAX_PAGES = 40;
+function contractIds_(code, photos, from) {
+  return (photos || []).filter(function (d) { return typeof d === 'string' && d.indexOf('data:image') === 0; })
+    .map(function (d, i) { return savePhoto_(CONTRACT_FOLDER, code + '_geree_' + (from + i + 1) + '.jpg', d); });
+}
+function addContractPages_(code, photos) {
+  code = String(code || '').trim().toUpperCase();
+  var sh = sh_('Төсөл'), v = sh.getDataRange().getValues(), idx = -1;
+  for (var i = 1; i < v.length; i++) if (String(v[i][0]).trim() === code) idx = i;
+  if (idx < 1) throw new Error('Төсөл олдсонгүй');
+  var cur = String(v[idx][10] || '').split(',').filter(String);
+  if (cur.length + (photos || []).length > CONTRACT_MAX_PAGES) throw new Error('Гэрээний хуулбар ' + CONTRACT_MAX_PAGES + ' хуудаснаас хэтэрч болохгүй');
+  var ids = cur.concat(contractIds_(code, photos, cur.length));
+  sh.getRange(idx + 1, 11).setValue(ids.join(','));
+  CacheService.getScriptCache().remove('meta');
+  return ids.length;
+}
+function saveProject_(p, photo, photos) {
   CacheService.getScriptCache().remove('meta');
   var code = String(p.code || '').trim().toUpperCase(), name = String(p.name || '').trim();
   if (!code || !name) throw new Error('Төслийн код, нэрийг оруулна уу');
@@ -778,7 +800,10 @@ function saveProject_(p, photo) {
   for (var i = 1; i < v.length; i++) if (String(v[i][0]).trim() === code) idx = i;
   if (p.isNew && idx > 0) throw new Error('Ийм кодтой төсөл байна');
   var photoId = idx > 0 ? String(v[idx][10] || '') : '';
-  if (photo && photo.indexOf('data:image') === 0) photoId = savePhoto_(CONTRACT_FOLDER, code + '_geree.jpg', photo);
+  if (photos && photos.length) {
+    if (photos.length > CONTRACT_MAX_PAGES) throw new Error('Гэрээний хуулбар ' + CONTRACT_MAX_PAGES + ' хуудаснаас хэтэрч болохгүй');
+    var nids = contractIds_(code, photos, 0); if (nids.length) photoId = nids.join(',');
+  } else if (photo && photo.indexOf('data:image') === 0) photoId = savePhoto_(CONTRACT_FOLDER, code + '_geree.jpg', photo);
   var row = [code, name, p.active !== false, num_(p.contract), num_(p.c1), num_(p.c2), num_(p.c3), num_(p.c4), num_(p.c5), num_(p.pct), photoId];
   var site = [p.lat ? num_(p.lat) : '', p.lng ? num_(p.lng) : ''];
   if (idx > 0) { sh.getRange(idx + 1, 1, 1, row.length).setValues([row]); sh.getRange(idx + 1, 15, 1, 2).setValues([site]); }
