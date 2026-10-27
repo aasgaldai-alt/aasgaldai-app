@@ -198,23 +198,23 @@ table.tx tr.tot td{font-weight:600;border-bottom:none;border-top:1px solid var(-
 @font-face{font-family:"AasTimes";src:url(fonts/LiberationSerif-Regular.ttf) format("truetype");font-weight:400}
 @font-face{font-family:"AasTimes";src:url(fonts/LiberationSerif-Bold.ttf) format("truetype");font-weight:700}
 .a4wrap{overflow:hidden;position:relative;margin-bottom:16px}
-.a4{width:794px;height:1123px;background:#fff;color:#111;transform-origin:0 0;font:16px/1.15 "AasArial",Arial,sans-serif;position:absolute;left:0;top:0;border-radius:6px;box-shadow:0 2px 14px rgba(0,0,0,.14);overflow:hidden}
+.a4{width:794px;height:1123px;background:#fff;color:#111;transform-origin:0 0;font:16px/1.285 "AasArial",Arial,sans-serif;position:absolute;left:0;top:0;border-radius:6px;box-shadow:0 2px 14px rgba(0,0,0,.14);overflow:hidden}
 .a4in{padding:57px 57px 0 94px;height:998px;box-sizing:content-box;overflow:hidden}
 .a4top{display:flex;justify-content:space-between;align-items:flex-start}
-.a4org{width:295px;text-align:center;font-family:"AasTimes","Times New Roman",serif;font-size:13.3px;line-height:1.15;display:flex;flex-direction:column;align-items:center}
-.a4org img{width:64px;height:64px;object-fit:contain}.a4org b{font-size:16px;margin:4px 0 2px}
+.a4org{width:295px;text-align:center;font-family:"AasTimes","Times New Roman",serif;font-size:13.33px;line-height:1.218;display:flex;flex-direction:column;align-items:center}
+.a4org img{width:64px;height:64px;object-fit:contain}.a4org b{font-size:16px;line-height:1.273;margin:4px 0 1.3px}
 .a4no{margin-top:22px;font-size:14.7px}
 .a4to,.a4sub{position:relative;text-align:center;white-space:pre-wrap}
-.a4to{width:272px;margin-top:76px;padding:5px 12px 0}
-.a4sub{width:359px;padding:5px 14px 0;margin:34px 0 30px}
+.a4to{width:272px;margin-top:76px;padding:10.7px 11px 0}
+.a4sub{width:359px;padding:12px 15px 0;margin:34px 0 30px}
 .cn::before,.cn::after{content:"";position:absolute;top:0;width:9px;height:9px;border-top:1.2px solid #111}
 .cn::before{left:0;border-left:1.2px solid #111}.cn::after{right:0;border-right:1.2px solid #111}
-.a4meta{border-collapse:collapse;margin-top:26px;font-family:"AasTimes","Times New Roman",serif;font-size:14.7px;table-layout:fixed}.a4meta td{padding:2.7px 0;white-space:nowrap}
+.a4meta{border-collapse:collapse;margin-top:26px;font-family:"AasTimes","Times New Roman",serif;font-size:14.67px;line-height:1.273;table-layout:fixed}.a4meta td{padding:2.67px 0;white-space:nowrap}
 .a4p{margin:0;text-align:justify;white-space:pre-wrap}
-.a4tbl{border-collapse:collapse;width:100%;margin:4px 0;table-layout:fixed}.a4tbl td{border:1px solid #000;padding:1px 5px;vertical-align:top;font-size:15px;line-height:1.25;overflow-wrap:anywhere}.a4tbl tr:first-child td{font-weight:700;background:#f1f1f1}
+.a4tbl{border-collapse:collapse;width:100%;margin:4px 0;table-layout:fixed}.a4tbl td{border:.8px solid #000;padding:2px 4px;vertical-align:top;font-size:14.67px;line-height:1.173;overflow-wrap:anywhere}.a4tbl tr:first-child td{font-weight:700;background:#f1f1f1}
 .a4resp{margin:26px 0 0 47px}
 .a4sign{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-left:68px;padding-right:15px}
-.a4sign .st{flex:1;display:flex;justify-content:center;min-height:60px;align-items:center}
+.a4sign .st{flex:1;display:flex;justify-content:center;min-height:118px;align-items:center}
 div.f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);font-weight:500}
 .ltool{display:flex;gap:6px;margin:4px 0 6px}.ltool button{padding:6px 12px;font-size:13.5px}
 #l_body{tab-size:4;-moz-tab-size:4;font-family:Arial,sans-serif;line-height:1.45;white-space:pre-wrap}
@@ -1867,13 +1867,13 @@ async function lStamp(){ if(S.L.stampData!==undefined) return S.L.stampData; con
 const STAMP_W=58.7, STAMP_H=50.8, PXMM=96/25.4;
 function letterBlocks(l,stamp){
   const runs=p=>lRuns(p).map(r=>r.b?`<b>${esc(r.t)}</b>`:esc(r.t)).join("");
-  const B=[`<div class="a4top"><div class="a4org"><img src="${logoSrc()}" alt=""><b>${esc(ORG.name)}</b>${ORG.lines.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
+  const B=[`<div><div class="a4top"><div class="a4org"><img src="${logoSrc()}" alt=""><b>${esc(ORG.name)}</b>${ORG.lines.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
     <div class="a4to"><i class="cn"></i><div>${esc(l.to||"Хаана")}</div></div></div>
-   <table class="a4meta">${lMeta(l).map(r=>`<tr>${r.map((c,i)=>`<td style="width:${(MCOL[i]*PXMM).toFixed(0)}px">${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`,
+   <table class="a4meta">${lMeta(l).map(r=>`<tr>${r.map((c,i)=>`<td style="width:${(MCOL[i]*PXMM).toFixed(0)}px">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>`,
     `<div class="a4sub"><i class="cn"></i><div>${esc(l.title||"Гарчиг")}</div></div>`];
   const ls=lItems(l.body);
   if(!ls.length) B.push(`<p class="a4p muted">Агуулга…</p>`);
-  ls.forEach(x=>B.push(x.tbl?`<table class="a4tbl"><colgroup>${x.pct.map(w=>`<col style="width:${w.toFixed(1)}%">`).join("")}</colgroup>${x.rows.map(r=>`<tr>${r.map(c=>`<td>${runs(c)||"&nbsp;"}</td>`).join("")}</tr>`).join("")}</table>`:x.blank?`<p class="a4p">&nbsp;</p>`:`<p class="a4p" style="text-indent:${(x.ind*12.5*PXMM).toFixed(1)}px">${runs(x.text)}</p>`));
+  ls.forEach(x=>B.push(x.tbl?`<table class="a4tbl"><colgroup>${x.pct.map(w=>`<col style="width:${w.toFixed(1)}%">`).join("")}</colgroup>${x.rows.map(r=>`<tr>${r.map(c=>`<td>${runs(c)||"&nbsp;"}</td>`).join("")}</tr>`).join("")}</table>`:x.blank?`<p class="a4p">&nbsp;</p>`:`<p class="a4p" data-src="${esc(x.text)}" style="text-indent:${(x.ind*12.5*PXMM).toFixed(1)}px">${runs(x.text)}</p>`));
   B.push(`<div class="a4end"><p class="a4resp">Хүндэтгэсэн,</p><div class="a4sign"><span>${esc(l.signTitle||"")},</span><span class="st">${stamp?`<img src="${stamp}" alt="" style="width:${(STAMP_W*PXMM).toFixed(0)}px;height:${(STAMP_H*PXMM).toFixed(0)}px">`:""}</span><span>${esc(l.signName||"")}</span></div></div>`);
   return B;
 }
@@ -1881,8 +1881,21 @@ function lPaginate(wrap,l,stamp){
   const B=letterBlocks(l,stamp); wrap.innerHTML="";
   let page=null,inner=null; const newPage=()=>{ page=document.createElement("div"); page.className="a4"; inner=document.createElement("div"); inner.className="a4in"; page.appendChild(inner); wrap.appendChild(page); };
   newPage();
-  B.forEach(h=>{ const t=document.createElement("div"); t.innerHTML=h; const el=t.firstElementChild||t; inner.appendChild(el);
-    if(inner.scrollHeight>inner.clientHeight+1&&inner.children.length>1){ inner.removeChild(el); newPage(); inner.appendChild(el); } });
+  const over=()=>inner.scrollHeight>inner.clientHeight+1;
+  // PDF (pdfmake)-тэй адилхан: догол мөрийг мөрөөр нь, хүснэгтийг мөрөөр нь (толгойг давтаж) дараагийн хуудас руу хуваана
+  const tokHtml=T=>T.map(w=>w.b?`<b>${esc(w.t)}</b>`:esc(w.t)).join(" ");
+  const place=el=>{ inner.appendChild(el); if(!over()) return;
+    if(el.matches("p.a4p[data-src]")){ const T=[]; lRuns(el.dataset.src).forEach(r=>r.t.split(/\s+/).filter(Boolean).forEach(w=>T.push({t:w,b:r.b})));
+      let lo=0,hi=T.length-1; const keep=el.cloneNode(); keep.style.textAlignLast="justify"; inner.replaceChild(keep,el);
+      while(lo<hi){ const mid=Math.ceil((lo+hi)/2); keep.innerHTML=tokHtml(T.slice(0,mid)); if(over()) hi=mid-1; else lo=mid; }
+      if(lo>0){ keep.innerHTML=tokHtml(T.slice(0,lo)); const rest=document.createElement("p"); rest.className="a4p"; rest.dataset.src=T.slice(lo).map(w=>w.b?"**"+w.t+"**":w.t).join(" "); rest.innerHTML=tokHtml(T.slice(lo)); newPage(); place(rest); return; }
+      inner.replaceChild(el,keep); }
+    else if(el.matches("table.a4tbl")&&el.rows.length>2){ const rows=[...el.rows]; let n=rows.length;
+      while(n>1&&over()){ n--; rows[n].remove(); }
+      if(n>1){ const rest=el.cloneNode(true); [...rest.rows].slice(1).forEach(r=>r.remove()); const tb=rest.rows[0].parentNode; rows.slice(n).forEach(r=>tb.appendChild(r)); newPage(); place(rest); return; }
+      const tb=rows[0].parentNode; rows.slice(1).forEach(r=>{ if(!r.parentNode) tb.appendChild(r); }); }
+    if(inner.children.length>1){ inner.removeChild(el); newPage(); inner.appendChild(el); } };
+  B.forEach(h=>{ const t=document.createElement("div"); t.innerHTML=h; place(t.firstElementChild||t); });
   lScale();
 }
 function lShow(wrap,l,stamp){ lPaginate(wrap,l,stamp); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ if(wrap.isConnected) lPaginate(wrap,l,stamp); }); }
@@ -1890,7 +1903,7 @@ function lShow(wrap,l,stamp){ lPaginate(wrap,l,stamp); if(document.fonts&&docume
 async function letterPdf(l,stamp){
   const pm=await needPdf(), mm=x=>x*72/25.4;
   const corners=w=>({canvas:[{type:"polyline",lineWidth:.8,points:[{x:0,y:7},{x:0,y:0},{x:7,y:0}]},{type:"polyline",lineWidth:.8,points:[{x:w-7,y:0},{x:w,y:0},{x:w,y:7}]}]});
-  const para=x=>x.tbl?{table:{headerRows:1,dontBreakRows:true,widths:x.pct.map(w=>w+"%"),body:x.rows.map((r,i)=>r.map(c=>({text:c?lRuns(c).map(q=>({text:q.t,bold:q.b||i===0})):" ",fontSize:11,lineHeight:1.05,fillColor:i===0?"#f1f1f1":null})))},
+  const para=x=>x.tbl?{table:{headerRows:1,dontBreakRows:true,widths:x.pct.map(w=>Math.max(8,w*(mm(170)-0.6)/100-6.6)),body:x.rows.map((r,i)=>r.map(c=>({text:c?lRuns(c).map(q=>({text:q.t,bold:q.b||i===0})):" ",fontSize:11,lineHeight:1.05,fillColor:i===0?"#f1f1f1":null})))},
       layout:{hLineWidth:()=>.6,vLineWidth:()=>.6,paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>1.5,paddingBottom:()=>1.5},margin:[0,3,0,3]}:x.blank?{text:" "}:{text:lRuns(x.text).map(r=>({text:r.t,bold:r.b})),alignment:"justify",leadingIndent:mm(12.5*x.ind)};
   const content=[
     {columns:[
@@ -1901,7 +1914,7 @@ async function letterPdf(l,stamp){
     {columns:[{width:mm(95),stack:[corners(mm(95)),{text:l.title,alignment:"center",margin:[mm(4),2,mm(4),0]}]},{width:"*",text:""}],margin:[0,mm(9),0,mm(8)]},
     ...lItems(l.body).map(para),
     {unbreakable:true,stack:[{text:"Хүндэтгэсэн,",margin:[mm(12.5),mm(7),0,0]},
-      {columns:[{width:"auto",text:(l.signTitle||"")+",",margin:[mm(18),mm(STAMP_H/2-2.5),0,0]},{width:"*",stack:[stamp?{image:stamp,width:mm(STAMP_W),height:mm(STAMP_H),alignment:"center"}:{text:" ",margin:[0,mm(STAMP_H/2),0,0]}]},{width:"auto",text:l.signName||"",margin:[0,mm(STAMP_H/2-2.5),mm(4),0]}],margin:[0,mm(1),0,0]}]}
+      {columns:[{width:mm(62),text:(l.signTitle||"")+",",margin:[mm(18),mm(STAMP_H/2-2.5),0,0]},{width:"*",stack:[stamp?{image:stamp,width:mm(STAMP_W),height:mm(STAMP_H),alignment:"center"}:{text:" ",margin:[0,mm(STAMP_H/2),0,0]}]},{width:mm(48),text:l.signName||"",alignment:"right",margin:[0,mm(STAMP_H/2-2.5),mm(4),0]}],margin:[0,mm(1),0,0]}]}
   ];
   const dd={pageSize:"A4",pageMargins:[mm(25),mm(15),mm(15),mm(18)],content,defaultStyle:{font:"Arial",fontSize:12,lineHeight:1.15},info:{title:"Албан бичиг "+l.no,author:"Аасгалдай ХХК"}};
   return await new Promise(res=>pm.createPdf(dd).getBlob(res));
@@ -2656,7 +2669,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261027132308";
+const BUILD="20261027135245";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
