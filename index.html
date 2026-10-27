@@ -211,6 +211,7 @@ table.tx tr.tot td{font-weight:600;border-bottom:none;border-top:1px solid var(-
 .cn::before{left:0;border-left:1.2px solid #111}.cn::after{right:0;border-right:1.2px solid #111}
 .a4meta{border-collapse:collapse;margin-top:26px;font-family:"AasTimes","Times New Roman",serif;font-size:14.7px;table-layout:fixed}.a4meta td{padding:2.7px 0;white-space:nowrap}
 .a4p{margin:0;text-align:justify;white-space:pre-wrap}
+.a4tbl{border-collapse:collapse;width:100%;margin:4px 0;table-layout:fixed}.a4tbl td{border:1px solid #000;padding:1px 5px;vertical-align:top;font-size:15px;line-height:1.25;overflow-wrap:anywhere}.a4tbl tr:first-child td{font-weight:700;background:#f1f1f1}
 .a4resp{margin:26px 0 0 47px}
 .a4sign{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-left:68px;padding-right:15px}
 .a4sign .st{flex:1;display:flex;justify-content:center;min-height:60px;align-items:center}
@@ -1843,6 +1844,17 @@ const lDots=d=>String(d||"").replace(/-/g,".");
 const logoSrc=()=>{ const i=document.querySelector("img.logo"); return i?i.src:""; };
 function lLines(body){ const L=String(body||"").replace(/\r/g,"").split("\n"); while(L.length&&!L[L.length-1].trim()) L.pop(); while(L.length&&!L[0].trim()) L.shift();
   return L.map(x=>{ let i=0,sp=0; while(i<x.length&&(x[i]==="\t"||x[i]===" ")){ if(x[i]==="\t") sp+=4; else sp+=1; i++; } return {ind:Math.floor(sp/4),text:x.slice(i).replace(/\s+$/,""),blank:!x.trim()}; }); }
+// "| a | b |" мөрүүд дараалсан бол хүснэгт болно
+const lCells=t=>{ const x=String(t).trim().replace(/^\|/,"").replace(/\|$/,""); return x.split("|").map(c=>c.trim()); };
+function lItems(body){ const out=[]; lLines(body).forEach(x=>{ const t=x.text.trim();
+  if(!x.blank&&t.startsWith("|")){ const cells=lCells(t); if(cells.every(c=>/^:?-{2,}:?$/.test(c))) return; const last=out[out.length-1];
+    if(last&&last.tbl) last.rows.push(cells); else out.push({tbl:true,rows:[cells]}); return; }
+  out.push(x); });
+  out.forEach(b=>{ if(!b.tbl) return; const n=Math.max(...b.rows.map(r=>r.length)); b.rows=b.rows.map(r=>r.concat(Array(n-r.length).fill("")));
+    const len=Array(n).fill(0); b.rows.forEach(r=>r.forEach((c,i)=>{ len[i]=Math.max(len[i],Math.min(40,c.replace(/\*\*/g,"").length)); }));
+    const w=len.map(v=>v+4), tot=w.reduce((a,c)=>a+c,0); b.pct=w.map(v=>Math.max(8,v/tot*100)); const t2=b.pct.reduce((a,c)=>a+c,0); b.pct=b.pct.map(v=>v/t2*100); });
+  return out; }
+function lTableText(rows){ return rows.filter(r=>r.some(c=>c)).map(r=>"| "+r.map(c=>String(c).replace(/\s+/g," ").replace(/\|/g,"/").trim()).join(" | ")+" |").join("\n"); }
 function lRuns(t){ const out=[]; String(t).split(/(\*\*[^*]+\*\*)/).forEach(p=>{ if(!p) return; if(/^\*\*[^*]+\*\*$/.test(p)) out.push({t:p.slice(2,-2),b:true}); else out.push({t:p,b:false}); }); return out; }
 const MCOL=[13,33,6,25];
 function lMeta(l){ const has=l.refDate||l.refNo;
@@ -1859,9 +1871,9 @@ function letterBlocks(l,stamp){
     <div class="a4to"><i class="cn"></i><div>${esc(l.to||"Хаана")}</div></div></div>
    <table class="a4meta">${lMeta(l).map(r=>`<tr>${r.map((c,i)=>`<td style="width:${(MCOL[i]*PXMM).toFixed(0)}px">${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`,
     `<div class="a4sub"><i class="cn"></i><div>${esc(l.title||"Гарчиг")}</div></div>`];
-  const ls=lLines(l.body);
+  const ls=lItems(l.body);
   if(!ls.length) B.push(`<p class="a4p muted">Агуулга…</p>`);
-  ls.forEach(x=>B.push(x.blank?`<p class="a4p">&nbsp;</p>`:`<p class="a4p" style="text-indent:${(x.ind*12.5*PXMM).toFixed(1)}px">${runs(x.text)}</p>`));
+  ls.forEach(x=>B.push(x.tbl?`<table class="a4tbl"><colgroup>${x.pct.map(w=>`<col style="width:${w.toFixed(1)}%">`).join("")}</colgroup>${x.rows.map(r=>`<tr>${r.map(c=>`<td>${runs(c)||"&nbsp;"}</td>`).join("")}</tr>`).join("")}</table>`:x.blank?`<p class="a4p">&nbsp;</p>`:`<p class="a4p" style="text-indent:${(x.ind*12.5*PXMM).toFixed(1)}px">${runs(x.text)}</p>`));
   B.push(`<div class="a4end"><p class="a4resp">Хүндэтгэсэн,</p><div class="a4sign"><span>${esc(l.signTitle||"")},</span><span class="st">${stamp?`<img src="${stamp}" alt="" style="width:${(STAMP_W*PXMM).toFixed(0)}px;height:${(STAMP_H*PXMM).toFixed(0)}px">`:""}</span><span>${esc(l.signName||"")}</span></div></div>`);
   return B;
 }
@@ -1878,7 +1890,8 @@ function lShow(wrap,l,stamp){ lPaginate(wrap,l,stamp); if(document.fonts&&docume
 async function letterPdf(l,stamp){
   const pm=await needPdf(), mm=x=>x*72/25.4;
   const corners=w=>({canvas:[{type:"polyline",lineWidth:.8,points:[{x:0,y:7},{x:0,y:0},{x:7,y:0}]},{type:"polyline",lineWidth:.8,points:[{x:w-7,y:0},{x:w,y:0},{x:w,y:7}]}]});
-  const para=x=>x.blank?{text:" "}:{text:lRuns(x.text).map(r=>({text:r.t,bold:r.b})),alignment:"justify",leadingIndent:mm(12.5*x.ind)};
+  const para=x=>x.tbl?{table:{headerRows:1,dontBreakRows:true,widths:x.pct.map(w=>w+"%"),body:x.rows.map((r,i)=>r.map(c=>({text:c?lRuns(c).map(q=>({text:q.t,bold:q.b||i===0})):" ",fontSize:11,lineHeight:1.05,fillColor:i===0?"#f1f1f1":null})))},
+      layout:{hLineWidth:()=>.6,vLineWidth:()=>.6,paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>1.5,paddingBottom:()=>1.5},margin:[0,3,0,3]}:x.blank?{text:" "}:{text:lRuns(x.text).map(r=>({text:r.t,bold:r.b})),alignment:"justify",leadingIndent:mm(12.5*x.ind)};
   const content=[
     {columns:[
       {width:mm(78),stack:[{image:logoSrc(),fit:[mm(17),mm(17)],alignment:"center"},{text:ORG.name,font:"Times",bold:true,alignment:"center",fontSize:12,margin:[0,3,0,1]},{text:ORG.lines.join("\n"),font:"Times",alignment:"center",fontSize:10,lineHeight:1.1}]},
@@ -1886,7 +1899,7 @@ async function letterPdf(l,stamp){
       {width:mm(72),margin:[0,mm(20),0,0],stack:[corners(mm(72)),{text:l.to,alignment:"center",margin:[mm(3),1,mm(3),0]}]}]},
     {table:{widths:MCOL.map(mm),body:lMeta(l).map(r=>r.map(c=>({text:c,font:"Times",fontSize:11})))},layout:{hLineWidth:()=>0,vLineWidth:()=>0,paddingLeft:()=>0,paddingRight:()=>0,paddingTop:()=>2,paddingBottom:()=>2},margin:[0,mm(7),0,0]},
     {columns:[{width:mm(95),stack:[corners(mm(95)),{text:l.title,alignment:"center",margin:[mm(4),2,mm(4),0]}]},{width:"*",text:""}],margin:[0,mm(9),0,mm(8)]},
-    ...lLines(l.body).map(para),
+    ...lItems(l.body).map(para),
     {unbreakable:true,stack:[{text:"Хүндэтгэсэн,",margin:[mm(12.5),mm(7),0,0]},
       {columns:[{width:"auto",text:(l.signTitle||"")+",",margin:[mm(18),mm(STAMP_H/2-2.5),0,0]},{width:"*",stack:[stamp?{image:stamp,width:mm(STAMP_W),height:mm(STAMP_H),alignment:"center"}:{text:" ",margin:[0,mm(STAMP_H/2),0,0]}]},{width:"auto",text:l.signName||"",margin:[0,mm(STAMP_H/2-2.5),mm(4),0]}],margin:[0,mm(1),0,0]}]}
   ];
@@ -1904,7 +1917,11 @@ async function letterDocx(l,stamp){
   const right=[P(" ",{before:tw(18)}),P(["┌",new D.TextRun({text:"\t┐",font:A,size:24})],{tabs:[{type:D.TabStopType.RIGHT,position:tw(68)}]}),...String(l.to).split(/\n/).map(x=>P(x,{al:D.AlignmentType.CENTER}))];
   const head=new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(80),tw(18),tw(72)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
     new D.TableCell({width:{size:tw(80),type:D.WidthType.DXA},borders:cb,children:left}),new D.TableCell({width:{size:tw(18),type:D.WidthType.DXA},borders:cb,children:[P("")]}),new D.TableCell({width:{size:tw(72),type:D.WidthType.DXA},borders:cb,children:right})]})]});
-  const body=lLines(l.body).map(x=>x.blank?P(""):new D.Paragraph({alignment:D.AlignmentType.JUSTIFIED,indent:x.ind?{firstLine:tw(12.5*x.ind)}:undefined,spacing:{after:0,line:276},children:lRuns(x.text).map(r=>new D.TextRun({text:r.t,bold:r.b,font:A,size:24}))}));
+  const sb={style:D.BorderStyle.SINGLE,size:4,color:"000000"}, tb={top:sb,bottom:sb,left:sb,right:sb};
+  const tbl=x=>{ const W=x.pct.map(w=>tw(170*w/100)); return new D.Table({width:{size:W.reduce((a,c)=>a+c,0),type:D.WidthType.DXA},columnWidths:W,layout:D.TableLayoutType.FIXED,
+    rows:x.rows.map((r,i)=>new D.TableRow({tableHeader:i===0,cantSplit:true,children:r.map((c,j)=>new D.TableCell({width:{size:W[j],type:D.WidthType.DXA},borders:tb,shading:i===0?{fill:"F1F1F1",type:D.ShadingType.CLEAR,color:"auto"}:undefined,margins:{top:20,bottom:20,left:70,right:70},
+      children:[new D.Paragraph({spacing:{after:0},children:(lRuns(c).length?lRuns(c):[{t:"",b:false}]).map(q=>new D.TextRun({text:q.t,bold:q.b||i===0,font:A,size:22}))})]}))}))}); };
+  const body=lItems(l.body).map(x=>x.tbl?tbl(x):x.blank?P(""):new D.Paragraph({alignment:D.AlignmentType.JUSTIFIED,indent:x.ind?{firstLine:tw(12.5*x.ind)}:undefined,spacing:{after:0,line:276},children:lRuns(x.text).map(r=>new D.TextRun({text:r.t,bold:r.b,font:A,size:24}))}));
   const st=stamp?[new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[new D.ImageRun({data:dataUrlBytes(stamp),transformation:{width:Math.round(STAMP_W*PXMM),height:Math.round(STAMP_H*PXMM)}})]})]:[P("")];
   const sign=new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(62),tw(64),tw(44)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
     new D.TableCell({width:{size:tw(62),type:D.WidthType.DXA},borders:cb,verticalAlign:D.VerticalAlign.CENTER,children:[P((l.signTitle||"")+",",{indent:{left:tw(12)}})]}),
@@ -1957,7 +1974,7 @@ function renderLetters(m){
      <form class="card form" id="lForm" novalidate><div style="font-weight:600;font-size:17px">${d.no?"Албан бичиг засах · № "+esc(d.no):"Шинэ албан бичиг · № "+esc(D.next)}</div>
       <label class="f">Хаана (хүлээн авагч)<textarea id="l_to" rows="2" autocomplete="off" placeholder="Эхний үсгүүдээ бичихэд өмнө илгээсэн газрууд гарч ирнэ">${esc(d.to)}</textarea><div class="lsug" id="lSug" hidden></div></label>
       <label class="f">Гарчиг<input id="l_title" value="${esc(d.title)}" placeholder="Жишээ: Бетон замын ажил эхлүүлэх тухай"></label>
-      <div class="f"><span>Агуулга</span><div class="ltool"><button type="button" data-ltab title="Догол мөр (Tab)">⇥ Догол мөр</button><button type="button" data-lbold title="Сонгосон үгийг тод болгох"><b>Т</b> Тод</button></div><textarea id="l_body" rows="14" spellcheck="false">${esc(d.body)}</textarea><span class="small muted"><b>Tab</b> = догол мөр, <b>Enter</b> = шинэ мөр, хоосон мөр = зай. Үгийг сонгоод «Т Тод» дарвал тод болно.</span></div>
+      <div class="f"><span>Агуулга</span><div class="ltool"><button type="button" data-ltab title="Догол мөр (Tab)">⇥ Догол мөр</button><button type="button" data-lbold title="Сонгосон үгийг тод болгох"><b>Т</b> Тод</button><button type="button" data-ltbl title="Хүснэгт оруулах">▦ Хүснэгт</button></div><textarea id="l_body" rows="14" spellcheck="false">${esc(d.body)}</textarea><span class="small muted"><b>Tab</b> = догол мөр, <b>Enter</b> = шинэ мөр, хоосон мөр = зай. Үгийг сонгоод «Т Тод» дарвал тод болно. Word, Excel-ээс хүснэгт хуулж тавибал (Ctrl+V) хүснэгт болж орно; «| нүд | нүд |» мөр бүр хүснэгтийн нэг мөр.</span></div>
       <div class="row2"><label class="f">Огноо<input id="l_date" type="date" value="${esc(d.date)}"></label><label class="f">Гарын үсэг<select id="l_stamp"><option value="1" ${d.stamp?"selected":""}>Тамга, гарын үсэгтэй</option><option value="0" ${d.stamp?"":"selected"}>Тамга, гарын үсэггүй</option></select></label></div>
       <details ${d.refNo||d.refDate?"open":""}><summary class="small">Хариу бичиг бол (танай … -ны № … -т)</summary><div class="row2" style="margin-top:8px"><label class="f">Танай огноо<input id="l_rdate" value="${esc(d.refDate)}" placeholder="2026.07.10"></label><label class="f">Танай дугаар<input id="l_rno" value="${esc(d.refNo)}" placeholder="45/12"></label></div></details>
       <details><summary class="small">Гарын үсэг зурах хүн</summary><div class="row2" style="margin-top:8px"><label class="f">Албан тушаал<input id="l_stitle" value="${esc(d.signTitle)}"></label><label class="f">Нэр<input id="l_sname" value="${esc(d.signName)}"></label></div></details>
@@ -1967,6 +1984,15 @@ function renderLetters(m){
     const ta=$("#l_body"), ins=(txt,sel)=>{ const a=ta.selectionStart,b=ta.selectionEnd; ta.setRangeText(txt,a,b,sel?"select":"end"); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); };
     ta.addEventListener("keydown",e=>{ if(e.key==="Tab"&&!e.altKey&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); if(e.shiftKey){ const a=ta.selectionStart, ls=ta.value.lastIndexOf("\n",a-1)+1; if(ta.value[ls]==="\t"){ ta.setRangeText("",ls,ls+1,"end"); ta.dispatchEvent(new Event("input",{bubbles:true})); } } else ins("\t"); } });
     m.querySelector("[data-ltab]").addEventListener("click",()=>{ const a=ta.selectionStart, ls=ta.value.lastIndexOf("\n",a-1)+1; ta.setRangeText("\t",ls,ls,"end"); ta.setSelectionRange(a+1,a+1); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); });
+    const insBlock=txt=>{ const a=ta.selectionStart, v=ta.value, pre=a>0&&v[a-1]!=="\n"?"\n":"", post=v[ta.selectionEnd]&&v[ta.selectionEnd]!=="\n"?"\n":""; ins(pre+txt+post); };
+    m.querySelector("[data-ltbl]").addEventListener("click",()=>insBlock(lTableText([["Гарчиг 1","Гарчиг 2","Гарчиг 3"],["","",""],["","",""]])+"\n"));
+    ta.addEventListener("paste",e=>{ const cd=e.clipboardData; if(!cd) return; const html=cd.getData("text/html"), txt=cd.getData("text/plain");
+      let tables=[];
+      if(html&&/<table/i.test(html)){ const doc=new DOMParser().parseFromString(html,"text/html");
+        tables=[...doc.querySelectorAll("table")].filter(t=>!t.parentElement.closest("table")).map(t=>[...t.rows].map(tr=>[...tr.cells].flatMap(td=>{ const v=(td.innerText||td.textContent||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim(); const n=Math.min(10,+td.colSpan||1); return [v,...Array(n-1).fill("")]; }))); }
+      else if(txt&&/\t/.test(txt)){ const L=txt.replace(/\r/g,"").replace(/\n+$/,"").split("\n"); if(L.length>=2&&L.filter(x=>/\S\t/.test(x)).length>=Math.max(2,L.length-1)) tables=[L.map(x=>x.split("\t"))]; }
+      tables=tables.filter(t=>t.length&&t.some(r=>r.length>1)); if(!tables.length) return;
+      e.preventDefault(); insBlock(tables.map(lTableText).join("\n\n")+"\n"); toast("Хүснэгт орлоо"); });
     m.querySelector("[data-lbold]").addEventListener("click",()=>{ const a=ta.selectionStart,b=ta.selectionEnd; if(a===b){ toast("Эхлээд тод болгох үгээ сонгоно уу"); return; } const t=ta.value.slice(a,b); ins(/^\*\*[\s\S]*\*\*$/.test(t)?t.slice(2,-2):"**"+t+"**",true); });
     const upd=()=>{ const v=Object.assign({},d,lFormVals(),{no:d.no||D.next}); const sv=$("#l_stamp").value==="1"; lShow($("#lPrev"),v,sv?L.stampData:""); };
     const tt=$("#l_to"), sg=$("#lSug"), nz=x=>String(x||"").toLowerCase().replace(/\s+/g," ").trim();
@@ -2630,7 +2656,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261027001908";
+const BUILD="20261027132308";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
