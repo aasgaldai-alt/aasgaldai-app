@@ -305,6 +305,7 @@ function handle_(b) {
   try {
     if (b.action === 'login') return login_(b.login, b.pin);
     if (b.action === 'register') return register_(b.r);
+    if (b.action === 'rentApply') return rentApply_(b.r);
     var me = auth_(b);
     if (!me) return { error: 'auth', message: 'Дахин нэвтэрнэ үү' };
     if (b.action === 'changePin') return changePin_(me, b.oldPin, b.newPin);
@@ -380,6 +381,7 @@ function handle_(b) {
         out.myProjects = me.projects;
         out.canReq = me.canReq !== false;
         out.fin = isPM_(me) && !!me.fin;
+        if (boss) try { out.rentNew = rentRows_().filter(function (x) { return x.status === 'Шинэ'; }).length; } catch (e) {}
         if (boss || isPM_(me)) try { out.loansOpen = loanList_().filter(function (l) { return l.type === 'Авсан' && l.bal > 0; }).map(function (l) { return { id: l.id, party: l.party, proj: l.proj, bal: l.bal }; }); out.emps = activeUsers_().map(function (u) { return u.name; }); } catch (e) {}
         try { out.hr = hrBadge_(me); } catch (e) {}
         try { out.meal = lastMeal_(me); } catch (e) {}
@@ -472,6 +474,20 @@ function handle_(b) {
       case 'letterVoid':
         if (!isBoss_(me)) return deny_();
         letterVoid_(me, b.no); return letterData_(me);
+      case 'rentList':
+        if (!boss) return deny_();
+        return rentData_();
+      case 'rentFile':
+        if (!boss) return deny_();
+        var rr = rentRows_().filter(function (x) { return x.id === b.id; })[0];
+        var fid = rr && rr.d.files ? rr.d.files[b.key] : '';
+        return { data: fid ? fileData_(fid) : '' };
+      case 'rentDecide':
+        if (!director) return deny_();
+        rentDecide_(me, b); return rentData_();
+      case 'rentDelete':
+        if (!director) return deny_();
+        rentDelete_(b.id); return rentData_();
       case 'letterSent':
         if (!isBoss_(me)) return deny_();
         letterSent_(me, b); return letterData_(me);
@@ -716,8 +732,8 @@ function rowObj_(r) {
   return o;
 }
 function projects_() {
-  var psh = sh_('Төсөл'); if (psh.getMaxColumns() < 16) psh.insertColumnsAfter(psh.getMaxColumns(), 16 - psh.getMaxColumns());
-  var v = psh.getRange(2, 1, Math.max(1, psh.getLastRow() - 1), 16).getValues(); // O:P = талбайн байршил
+  var psh = sh_('Төсөл'); if (psh.getMaxColumns() < 17) psh.insertColumnsAfter(psh.getMaxColumns(), 17 - psh.getMaxColumns());
+  var v = psh.getRange(2, 1, Math.max(1, psh.getLastRow() - 1), 17).getValues(); // O:P = талбайн байршил, Q = гэрээнд бичигдэх бүтэн нэр
   return v.filter(function (r) { return r[0]; }).map(function (r) {
     var o = {};
     PCOLS.forEach(function (c, i) { o[c] = r[i]; });
@@ -726,7 +742,7 @@ function projects_() {
     ['contract','c1','c2','c3','c4','c5'].forEach(function (k) { o[k] = num_(o[k]); });
     o.pct = o.pct === '' ? 0.05 : num_(o.pct);
     o.photo = String(o.photo || '');
-    o.lat = num_(r[14]); o.lng = num_(r[15]);
+    o.lat = num_(r[14]); o.lng = num_(r[15]); o.full = String(r[16] || '');
     return o;
   });
 }
@@ -738,7 +754,7 @@ function meta_() {
   ensureGen_();
   var res = {
     loanLimit: loanLimit_(),
-    projects: projects_().filter(function (p) { return p.active; }).map(function (p) { return [p.code, p.name]; }),
+    projects: projects_().filter(function (p) { return p.active; }).map(function (p) { return [p.code, p.name, p.full || '']; }),
     categories: c.map(function (r) { return [r[0], r[1]]; }),
     banks: b.map(function (r) { return r[0]; }),
     locRequired: locRequired_(),
@@ -817,13 +833,14 @@ function saveProject_(p, photo, photos) {
     var nids = contractIds_(code, photos, 0); if (nids.length) photoId = nids.join(',');
   } else if (photo && photo.indexOf('data:image') === 0) photoId = savePhoto_(CONTRACT_FOLDER, code + '_geree.jpg', photo);
   var row = [code, name, p.active !== false, num_(p.contract), num_(p.c1), num_(p.c2), num_(p.c3), num_(p.c4), num_(p.c5), num_(p.pct), photoId];
-  var site = [p.lat ? num_(p.lat) : '', p.lng ? num_(p.lng) : ''];
-  if (idx > 0) { sh.getRange(idx + 1, 1, 1, row.length).setValues([row]); sh.getRange(idx + 1, 15, 1, 2).setValues([site]); }
+  var site = [p.lat ? num_(p.lat) : '', p.lng ? num_(p.lng) : '', String(p.full || '').trim().slice(0, 300)];
+  if (!String(sh.getRange(1, 17).getValue())) sh.getRange(1, 17).setValue('Гэрээнд бичигдэх нэр');
+  if (idx > 0) { sh.getRange(idx + 1, 1, 1, row.length).setValues([row]); sh.getRange(idx + 1, 15, 1, 3).setValues([site]); }
   else {
     // L:N баганын ARRAYFORMULA доош хоосон мөр үүсгэдэг тул A баганын эхний хоосон мөрийг хайна
     var next = v.length + 1;
     for (var j = 1; j < v.length; j++) if (!String(v[j][0]).trim()) { next = j + 1; break; }
-    sh.getRange(next, 1, 1, row.length).setValues([row]); sh.getRange(next, 15, 1, 2).setValues([site]);
+    sh.getRange(next, 1, 1, row.length).setValues([row]); sh.getRange(next, 15, 1, 3).setValues([site]);
     if (!String(sh.getRange(1, 15).getValue())) sh.getRange(1, 15, 1, 2).setValues([['Талбай өргөрөг', 'Талбай уртраг']]);
   }
   return dashboard_().filter(function (x) { return x.code === code; })[0];
@@ -844,7 +861,7 @@ function deleteProject_(code, force) {
   var sh = sh_('Төсөл'), v = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
   for (var i = v.length - 1; i >= 1; i--) {
     if (String(v[i][0]).trim() === code) {
-      sh.getRange(i + 1, 15, 1, 2).deleteCells(SpreadsheetApp.Dimension.ROWS);
+      sh.getRange(i + 1, 15, 1, 3).deleteCells(SpreadsheetApp.Dimension.ROWS);
       sh.getRange(i + 1, 1, 1, PCOLS.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
       CacheService.getScriptCache().remove('meta');
       return { ok: true, reqs: nReq, incomes: nInc };
@@ -1590,6 +1607,103 @@ function letterSent_(me, b) {
   }
   throw new Error('Албан бичиг олдсонгүй');
 }
+/* ---------- ТҮРЭЭСИЙН ГЭРЭЭ: сайтаас ирсэн хүсэлт → захирал батлах → гэрээ, техникийн бүртгэл ---------- */
+var RENT_FOLDER = 'Аасгалдай түрээс', RENT_FILES = ['idF', 'idB', 'certF', 'certB'];
+var RENT_COLS = ['ID', 'Огноо', 'Төлөв', 'Гэрээний №', 'Төсөл', 'Түрээслүүлэгч', 'Утас', 'И-мэйл', 'Техник', 'Улсын дугаар', 'Түрээс', 'Үнийн нэгж', 'Эхлэх', 'Дуусах', 'Өгөгдөл', 'Шийдвэрлэсэн', 'Техник ID'];
+var RENT_FIELDS = ['ptype', 'oname', 'oreg', 'orep', 'orepName', 'phone', 'email', 'address', 'bank', 'acct', 'acctName', 'eqType', 'eqMake', 'plate', 'year', 'serial', 'certNo', 'rateType', 'rate', 'vat', 'start', 'end', 'fuelBy', 'note'];
+function rentSheet_() { return ensureSheet_('Түрээсийн гэрээ', RENT_COLS); }
+function rentRows_() {
+  return rowsOf_(rentSheet_(), RENT_COLS.length).map(function (r, i) {
+    var d = {}; try { d = JSON.parse(String(r[14] || '{}')); } catch (e) {}
+    return { row: i + 2, id: String(r[0]), at: fmtDate_(r[1]), status: String(r[2] || ''), no: String(r[3] || ''), proj: String(r[4] || ''), by: String(r[15] || ''), eqId: String(r[16] || ''), d: d };
+  });
+}
+function rentData_() {
+  return { today: ymd_(new Date()), list: rentRows_().reverse().slice(0, 300).map(function (x) {
+    var d = {}; for (var k in x.d) if (k !== 'files') d[k] = x.d[k];
+    d.has = {}; RENT_FILES.forEach(function (k) { d.has[k] = !!(x.d.files && x.d.files[k]); });
+    return { id: x.id, at: x.at, status: x.status, no: x.no, proj: x.proj, by: x.by, eqId: x.eqId, d: d };
+  }) };
+}
+function rentClean_(r) {
+  var d = {}; RENT_FIELDS.forEach(function (k) { d[k] = String(r[k] == null ? '' : r[k]).replace(/\s+/g, ' ').trim().slice(0, 200); });
+  d.ptype = d.ptype === 'Байгууллага' ? 'Байгууллага' : 'Хувь хүн';
+  d.oreg = d.oreg.toUpperCase().replace(/\s/g, ''); d.phone = digits_(d.phone); d.acct = digits_(d.acct); d.plate = d.plate.toUpperCase();
+  d.rateType = d.rateType === 'Сар' ? 'Сар' : 'Өдөр'; d.rate = Math.round(num_(d.rate));
+  d.vat = d.vat === 'НӨАТ ороогүй' ? 'НӨАТ ороогүй' : 'НӨАТ орсон';
+  d.fuelBy = d.fuelBy === 'Түрээслэгч' ? 'Түрээслэгч' : 'Түрээслүүлэгч';
+  if (d.ptype === 'Байгууллага' && !d.orep) d.orep = 'Захирал';
+  if (!d.oname) throw new Error(d.ptype === 'Байгууллага' ? 'Байгууллагын нэрийг бичнэ үү' : 'Овог, нэрээ бичнэ үү');
+  if (d.ptype === 'Байгууллага' ? !/^\d{7}$/.test(d.oreg) : !/^[А-ЯЁӨҮ]{2}\d{8}$/.test(d.oreg)) throw new Error(d.ptype === 'Байгууллага' ? 'Байгууллагын регистр 7 оронтой тоо байна' : 'Регистрийн дугаараа зөв бичнэ үү (жишээ: УБ12345678)');
+  if (d.ptype === 'Байгууллага' && !d.orepName) throw new Error('Төлөөлж гарын үсэг зурах хүний нэрийг бичнэ үү');
+  if (d.phone.length !== 8) throw new Error('Утасны дугаар 8 оронтой байна');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) throw new Error('И-мэйл хаягаа зөв бичнэ үү');
+  if (!d.bank || d.acct.length < 6) throw new Error('Банк, дансны дугаараа бичнэ үү');
+  if (!d.eqType || !d.eqMake || !d.plate) throw new Error('Техникийн төрөл, марк, улсын дугаараа бичнэ үү');
+  if (!(d.rate > 0)) throw new Error('Түрээсийн үнэлгээгээ бичнэ үү');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.start) || !/^\d{4}-\d{2}-\d{2}$/.test(d.end) || d.end < d.start) throw new Error('Гэрээний эхлэх, дуусах огноог зөв сонгоно уу');
+  return d;
+}
+function rentApply_(r) {
+  r = r || {};
+  if (r.hp) return { ok: true, id: 'R0' }; // робот
+  if (!r.consent) throw new Error('Хувийн мэдээлэл ашиглахыг зөвшөөрсөн чагтыг тэмдэглэнэ үү');
+  var d = rentClean_(r), f = r.files || {}, files = {};
+  if (!f.idF) throw new Error('Иргэний үнэмлэх эсвэл лавлагааны зургийг оруулна уу');
+  if (!f.certF) throw new Error('Техникийн гэрчилгээний зургийг оруулна уу');
+  RENT_FILES.forEach(function (k) { var x = f[k]; if (!x) return;
+    if (typeof x !== 'string' || !/^data:image\/(jpeg|png);base64,/.test(x)) throw new Error('Зураг буруу байна');
+    if (x.length > 3000000) throw new Error('Зураг хэт том байна'); });
+  var all = rentRows_(), pend = all.filter(function (x) { return x.status === 'Шинэ'; });
+  if (pend.length >= 150) throw new Error('Хүсэлт олон хүлээгдэж байна. Утсаар холбогдоно уу.');
+  if (pend.filter(function (x) { return x.d.phone === d.phone; }).length >= 5) throw new Error('Таны өмнөх хүсэлтүүд шалгагдаж байна. Утсаар холбогдоно уу.');
+  var id = 'R' + Utilities.formatDate(new Date(), 'Asia/Ulaanbaatar', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+  RENT_FILES.forEach(function (k) { if (f[k]) files[k] = savePhoto_(RENT_FOLDER, id + '_' + k + '.jpg', f[k]); });
+  d.files = files;
+  rentSheet_().appendRow([id, new Date(), 'Шинэ', '', '', d.oname, "'" + d.phone, d.email, d.eqType + ' ' + d.eqMake, d.plate, d.rate, d.rateType, d.start, d.end, JSON.stringify(d), '', '']);
+  var money = function (n) { return Math.round(n).toLocaleString('en-US') + '₮'; };
+  var sum = 'Түрээслүүлэгч: ' + d.oname + ' (' + d.ptype + ', РД ' + d.oreg + ')\nУтас: ' + d.phone + ', и-мэйл: ' + d.email +
+            '\nТехник: ' + d.eqType + ' ' + d.eqMake + ', улсын дугаар ' + d.plate + (d.year ? ', ' + d.year + ' он' : '') +
+            '\nТүрээс: ' + money(d.rate) + ' / ' + (d.rateType === 'Сар' ? 'сар' : 'өдөр') + ' (' + d.vat + ')\nХугацаа: ' + d.start + ' — ' + d.end +
+            '\nТүлш: ' + (d.fuelBy === 'Түрээслэгч' ? 'Аасгалдай ХХК хангана' : 'Түрээслүүлэгч хариуцна') + (d.note ? '\nТэмдэглэл: ' + d.note : '');
+  var to = ['aasgaldai@gmail.com']; users_().forEach(function (u) { if (isBoss_(u) && u.email && to.indexOf(u.email) < 0) to.push(u.email); });
+  try { MailApp.sendEmail(to.join(','), 'Түрээсийн гэрээний хүсэлт: ' + d.eqType + ' ' + d.plate + ' — ' + d.oname, 'Сайтаас шинэ түрээсийн гэрээний хүсэлт ирлээ (' + id + ').\n\n' + sum + '\n\nИргэний үнэмлэх, гэрчилгээний зургийг апп-ын «Техник → Түрээсийн гэрээ» хэсгээс харж, батална уу:\nhttps://app.aasgaldai.mn/'); } catch (e) {}
+  try { MailApp.sendEmail(d.email, 'Аасгалдай ХХК: түрээсийн гэрээний хүсэлтийг хүлээн авлаа', 'Сайн байна уу,\n\nТаны машин механизм түрээслүүлэх хүсэлтийг хүлээн авлаа. Хүсэлтийн дугаар: ' + id + '.\n\n' + sum + '\n\nБид мэдээллийг шалгаад гэрээг бэлтгэж, тантай холбогдоно.\n\nХүндэтгэсэн,\n«Аасгалдай» ХХК\nУтас: 99004998, 88189305 · aasgaldai.mn'); } catch (e) {}
+  return { ok: true, id: id, name: d.oname, eq: d.eqType + ' ' + d.plate };
+}
+function rentDecide_(me, b) {
+  var x = rentRows_().filter(function (r) { return r.id === b.id; })[0];
+  if (!x) throw new Error('Хүсэлт олдсонгүй');
+  var sh = rentSheet_();
+  if (!b.ok) { sh.getRange(x.row, 3).setValue('Буцаасан'); sh.getRange(x.row, 16).setValue(me.name + ' · ' + ymd_(new Date()) + (b.note ? ' · ' + String(b.note).slice(0, 200) : '')); return; }
+  var d = rentClean_(b.d || x.d); d.files = x.d.files || {};
+  var proj = String(b.proj || '').trim(), P = projects_().filter(function (p) { return p.code === proj; })[0];
+  if (!P || proj === GEN) throw new Error('Төслөө сонгоно уу');
+  d.projName = String(b.projName || P.full || P.name).trim();
+  if (!d.projName) throw new Error('Гэрээнд бичигдэх төслийн нэрийг бичнэ үү');
+  d.advance = Math.max(0, Math.min(100, Math.round(num_(b.advance))));
+  d.cdate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.cdate || '')) ? String(b.cdate) : ymd_(new Date());
+  var no = x.no;
+  if (!no) { var yy = d.cdate.slice(2, 4), mx = 0;
+    rentRows_().forEach(function (r) { var m = /^Т-(\d+)\/(\d\d)$/.exec(r.no); if (m && m[2] === yy) mx = Math.max(mx, +m[1]); });
+    no = 'Т-' + ('0' + (mx + 1)).slice(-2) + '/' + yy; }
+  var eqId = x.eqId;
+  if (!eqId) {
+    var truck = /буулгагч|ачааны|усны|тээв|самосвал|howo|sinotruk|shacman/i.test(d.eqType + ' ' + d.eqMake);
+    var ex = equips_().filter(function (e) { return e.proj === proj && plateKey_(e.plate) === plateKey_(d.plate); })[0];
+    if (!ex) { saveEquip_({ proj: proj, plate: d.plate, name: (d.eqType + ' ' + d.eqMake).trim(), kind: truck ? 'Тээврийн хэрэгсэл' : 'Механизм', norm: 0, active: true, note: 'Түрээсийн гэрээ ' + no,
+        own: 'Түрээсийн', rate: d.rate, rateType: d.rateType, monthDays: 26, owner: d.oname, ownerPhone: d.phone, bank: d.bank, acct: d.acct, fuelBy: d.fuelBy === 'Түрээслэгч' ? 'Бид' : 'Түрээслэгч', start: d.start });
+      ex = equips_().filter(function (e) { return e.proj === proj && plateKey_(e.plate) === plateKey_(d.plate); })[0]; }
+    eqId = ex ? ex.id : '';
+  }
+  sh.getRange(x.row, 3, 1, 3).setValues([['Баталсан', no, proj]]);
+  sh.getRange(x.row, 6, 1, 12).setValues([[d.oname, "'" + d.phone, d.email, d.eqType + ' ' + d.eqMake, d.plate, d.rate, d.rateType, d.start, d.end, JSON.stringify(d), me.name + ' · ' + ymd_(new Date()), eqId]]);
+}
+function rentDelete_(id) {
+  var sh = rentSheet_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === String(id)) { sh.deleteRow(i + 1); return; }
+  throw new Error('Олдсонгүй');
+}
 function letterVoid_(me, no) {
   var sh = letterSheet_(), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(no)) { sh.getRange(i + 1, 15).setValue('Хүчингүй'); return; }
@@ -1941,6 +2055,10 @@ async function pushAction_(b, store) {
 }
 function notifyPlan_(app, b, out) {
   if (!out || out.error) return [];
+  if (b.action === "rentApply") {
+    if (!out.ok || out.id === "R0") return [];
+    return [{ to: app.users_().filter((u) => u.status !== "Хүлээгдэж буй" && app.isBoss_(u)).map((u) => u.name), title: "🚜 Түрээсийн гэрээний хүсэлт", body: (out.name || "") + " · " + (out.eq || "") + " — Техник → Түрээсийн гэрээ", tag: "rent" }];
+  }
   if (b.action === "register") {
     const U0 = app.users_(), nm = out.name;
     return [{ to: U0.filter((u) => u.status !== "Хүлээгдэж буй" && (app.isHR_(u) || app.isDir_(u) || app.isAdmin_(u))).map((u) => u.name), title: "🆕 Шинэ бүртгэл", body: nm + " апп-д бүртгүүллээ. Тохиргоо → Хэрэглэгчид хэсгээс баталгаажуулна уу.", tag: "reg" }];

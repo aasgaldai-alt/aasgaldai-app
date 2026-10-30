@@ -356,7 +356,7 @@ function demo(b){
   { const fr=demoFuel(D,b,me,boss,dir); if(fr){ if(!fr.error) save(); return fr; } }
   if(b.action==="boot"){ const L=demo({...b,action:"list"}), M=demo({...b,action:"meta"}); const out={meal:demoCook(D,{...b,action:"lastMeal"},me),hr:demoHR(D,{...b,action:"hrBadge"},me),myProjects:me.projects||null,fin:me.role==="Төслийн удирдагч"&&!!me.fin,reqs:L.reqs,meta:M,hab:demoHab(D,{...b,action:"habBadge"},me)}; if(boss) out.projects=demo({...b,action:"dashboard"}).projects; return out; }
   switch(b.action){
-    case "meta": return {projects:D.projects.filter(p=>p.active).map(p=>[p.code,p.name]),
+    case "meta": return {projects:D.projects.filter(p=>p.active).map(p=>[p.code,p.name,p.full||""]),
       categories:[["МАТ","Материал"],["ТЕХ","Техник, сэлбэг"],["ТЭЭ","Тээвэр"],["ТҮЛ","Түлш, тос"],["ЦАЛ","Цалин"],["ХОО","Хоол, ахуй"],["ТУС","Туслан гүйцэтгэгч"],["ЛАБ","Лаборатори"],["БУС","Бусад"]],
       banks:["Хаан банк","Голомт банк","Худалдаа хөгжлийн банк","Хас банк","Төрийн банк","Капитрон банк","Богд банк","Ариг банк","М банк"],locRequired:D.locReq!==false};
     case "setLocReq": { if(!dir) return deny; D.locReq=!!b.on; save(); return demo({...b,action:"meta"}); }
@@ -387,7 +387,7 @@ function demo(b){
     case "saveProject": { if(!dir) return deny; const p=b.project; const code=String(p.code||"").trim().toUpperCase();
       if(!code||!String(p.name||"").trim()) return {error:"bad",message:"Төслийн код, нэрийг оруулна уу"};
       let ex=D.projects.find(x=>x.code===code); if(p.isNew&&ex) return {error:"bad",message:"Ийм кодтой төсөл байна"};
-      const row={lat:num(p.lat)||"",lng:num(p.lng)||"",code,name:p.name.trim(),active:p.active!==false,contract:num(p.contract),c1:num(p.c1),c2:num(p.c2),c3:num(p.c3),c4:num(p.c4),c5:num(p.c5),pct:+p.pct||0,photo:ex?.photo||""};
+      const row={full:String(p.full||"").trim(),lat:num(p.lat)||"",lng:num(p.lng)||"",code,name:p.name.trim(),active:p.active!==false,contract:num(p.contract),c1:num(p.c1),c2:num(p.c2),c3:num(p.c3),c4:num(p.c4),c5:num(p.c5),pct:+p.pct||0,photo:ex?.photo||""};
       row.pages=ex?.pages||(row.photo?1:0);
       if(b.photos?.length){ b.photos.forEach((d,i)=>store.set("aas_dct_"+code+(i?"_"+i:""),d)); row.photo="demo"; row.pages=b.photos.length; }
       else if(b.photo){ store.set("aas_dct_"+code,b.photo); row.photo="demo"; row.pages=1; }
@@ -604,7 +604,7 @@ function setTabs(){
   const hb=(S.habBadge?.unread||0)+(habMgr()?(S.habBadge?.newReports||0):0), HT=["hab","⛑","ХАБЭА",hb];
   const NEW=S.canReq===false?[]:[["new","＋","Шинэ хүсэлт",0]], MINE=["mine","☰","Миний хүсэлт",0], pmPend=S.reqs.filter(r=>r.status===ST.WAIT&&r.by!==S.user.name).length;
   const GR=["sched","📊","График",0], hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN];
-  const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
+  const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",S.rentNew||0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
           :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
           :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
           :isPM()?[PT,["all","☰","Төслийн хүсэлт",0],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
@@ -736,6 +736,7 @@ function renderProjEdit(m){
    <div class="row2"><label class="f">Төслийн код<input id="p_code" value="${esc(p.code)}" ${p.isNew?"":"readonly"} placeholder="ТТ3" maxlength="8"></label>
    <label class="f">Төлөв<span class="chk" style="padding:11px 0"><input type="checkbox" id="p_active" ${p.active!==false?"checked":""}> Идэвхтэй</span></label></div>
    <label class="f">Төслийн нэр<input id="p_name" value="${esc(p.name)}" placeholder="Жишээ: Лүн уурхайн зам"></label>
+   <label class="f">Гэрээнд бичигдэх бүтэн нэр<textarea id="p_full" rows="2" placeholder="Жишээ: Гашуунсухайт автозамын 2026 оны зам засварын багц-2 ЭМГЛ/20260101288/03/01 тендерийн ажил">${esc(p.full||"")}</textarea><span class="small muted">Түрээсийн гэрээ зэрэгт төслийн нэр энэ хэлбэрээр бичигдэнэ.</span></label>
    <label class="f">Гэрээний хуулбар (олон зураг эсвэл PDF, ${CT_MAX} хүртэл хуудас)<input id="p_photo" type="file" multiple accept="${IMG_ACCEPT},application/pdf,.pdf"></label>
    <div id="p_prev">${ctPrev(p)}</div>
    ${mInput("p_contract","Гэрээний нийт дүн, ₮",p.contract)}
@@ -749,7 +750,7 @@ function renderProjEdit(m){
    <button class="primary big" type="submit" id="projSave">Хадгалах</button></form>`;
   calcProj();
 }
-function readProj(){ const p={...S.edit}; p.code=$("#p_code").value.trim().toUpperCase(); p.name=$("#p_name").value; p.active=$("#p_active").checked;
+function readProj(){ const p={...S.edit}; p.code=$("#p_code").value.trim().toUpperCase(); p.name=$("#p_name").value; p.full=$("#p_full")?$("#p_full").value.trim():(p.full||""); p.active=$("#p_active").checked;
   p.contract=num($("#p_contract").value); for(const [k] of COSTS) p[k]=num($("#p_"+k).value); p.pct=(parseFloat(String($("#p_pct").value).replace(",","."))||0)/100;
   const st=parseLoc(String($("#p_site")?.value||"").replace(/\s/g,"")); p.lat=st?st.lat:""; p.lng=st?st.lng:""; return p; }
 function calcProj(){ const box=$("#p_calc"); if(!box) return; const F=fin(readProj());
@@ -1046,8 +1047,9 @@ function renderFuel(m){
   const act=list.filter(e=>e.active);
   let h=demoBanner()+`<div class="chips">${P.map(c=>`<button data-fp="${esc(c)}" aria-pressed="${c===S.fp}">${esc(c)}</button>`).join("")}</div>`;
   if(!S.fview) S.fview="fuel";
-  h+=`<div class="seg"><button data-fview="fuel" aria-pressed="${S.fview==="fuel"}">⛽ Түлш</button><button data-fview="att" aria-pressed="${S.fview==="att"}">📅 Түрээсийн ирц</button></div>`;
+  h+=`<div class="seg"><button data-fview="fuel" aria-pressed="${S.fview==="fuel"}">⛽ Түлш</button><button data-fview="att" aria-pressed="${S.fview==="att"}">📅 Түрээсийн ирц</button>${isBoss()?`<button data-fview="rent" aria-pressed="${S.fview==="rent"}">📄 Түрээсийн гэрээ${S.rentNew?` (${S.rentNew})`:""}</button>`:""}</div>`;
   if(S.fview==="att") return renderAtt(m,h);
+  if(S.fview==="rent"&&isBoss()) return renderRent(m,h);
   h+=`<button class="primary big" data-fnew="" ${act.length?"":"disabled"}>⛽ Түлш олгох</button>`;
   if(isBoss()){
     const lit=list.reduce((a,e)=>a+e.liters,0), hi=act.filter(e=>e.lastMark==="high").length;
@@ -1827,7 +1829,7 @@ document.addEventListener("submit",async ev=>{ if(ev.target.id!=="mealForm") ret
     result(true,`${MEAL_IC[type]} Мэдэгдэл очлоо!`,`«${menu}» бэлэн боллоо гэж бүх хүнд мэдэгдлээ. Баярлалаа, тогооч оо! 💛`); }
   catch(err){ b.disabled=false; b.textContent="🍲 Хоол болсон!"; result(false,"Илгээж чадсангүй",err instanceof NetErr?"Интернет холболт алга байна. Холболтоо шалгаад дахин дарна уу.":err.message); } });
 
-const {renderLetters,canLetter}=(()=>{
+const {renderLetters,canLetter,needPdf,needDocx,saveOrShare,dataUrlBytes}=(()=>{
 const ORG={name:"\"ААСГАЛДАЙ\" ХХК",lines:["Улаанбаатар хот, Баянзүрх дүүрэг,","5-р хороо, 72/30","Утас: 99004998, 88189305","И-мэйл: aasgaldai@gmail.com","Веб: aasgaldai.mn"]};
 const LCDN="https:"+"/"+"/cdn.jsdelivr.net/npm/";
 function lLoadJS(u){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=u; s.onload=res; s.onerror=()=>rej(new Error("Интернэтээс сан ачаалж чадсангүй. Дахин оролдоно уу.")); document.head.appendChild(s); }); }
@@ -2096,8 +2098,183 @@ document.addEventListener("submit",async ev=>{
       if(photo) L.stampData=photo; toast("Хадгалагдлаа"); L.view="list"; render(); }
     catch(e){ showErr("#lcErr",e.message); b.disabled=false; } }
 },true);
-return {renderLetters,canLetter};
+return {renderLetters,canLetter,needPdf,needDocx,saveOrShare,dataUrlBytes};
 })();
+const {renderRent}=(()=>{
+const AAS={name:"“Аасгалдай” ХХК",up:"“ААСГАЛДАЙ” ХХК",reg:"6474098",rep:"Захирал",repName:"Ү.Эрдэнэсанаа",phone:"99004998"};
+const RKEYS=[["idF","Иргэний үнэмлэх / лавлагаа (урд тал)"],["idB","Иргэний үнэмлэх (ар тал)"],["certF","Техникийн гэрчилгээ (урд тал)"],["certB","Техникийн гэрчилгээ (ар тал)"]];
+const rUp=s=>String(s||"").toLocaleUpperCase("mn");
+const rSuf=d=>[1,4,9].includes(+d.slice(8,10)%10)?"ний":"ны";
+const rDate=d=>`${d.slice(0,4)} оны ${d.slice(5,7)} сарын ${d.slice(8,10)}`;
+const rMoney=n=>Math.round(+n||0).toLocaleString("en-US");
+// Гэрээний текст (засварласан загвар). Өөрчлөгдөх хэсгүүдийг d-ээс бөглөнө.
+function rentText(x){ const d=x.d, co=d.ptype==="Байгууллага", day=d.rateType!=="Сар", adv=+d.advance||0, cd=d.cdate||x.today||d.start;
+  const lessor=co?`${d.oname}-ийг төлөөлж /РД:${d.oreg}/ ${String(d.orep||"Захирал").toLowerCase()} ${d.orepName}`:`иргэн ${d.oname} /РД:${d.oreg}/`;
+  const S=[];
+  S.push(["Нэг. Ерөнхий зүйл",[
+    `Энэхүү гэрээний зорилго нь “Аасгалдай” ХХК-ийн гүйцэтгэж буй дараах ажилд машин механизмаар хамтран ажиллахад оршино: ${d.projName}.`,
+    "Түрээслүүлэгч нь биет байдлын доголдолгүй, эрхийн зөрчилгүй, шаардлага хангасан өөрийн эзэмшлийн машин механизмыг Түрээслэгчид түр хугацаагаар ашиглуулах, Түрээслэгч гэрээгээр тохирсон төлбөрийг төлөх, Талуудын эдлэх эрх, хүлээх үүрэг, хариуцлагыг тодорхой болгон зохицуулахад оршино.",
+    {table:true,lead:"Түрээслүүлэгч нь дараах тээврийн хэрэгсэл, машин механизмыг Түрээслэгчид түрээслүүлнэ:",
+      head:["№","Төрөл","Марк, загвар","Улсын дугаар","Он",day?"1 өдрийн түрээс /төг/":"1 сарын түрээс /төг/"],
+      row:["1",d.eqType,d.eqMake,d.plate,d.year||"—",rMoney(d.rate)],note:`Түрээсийн үнэд НӨАТ ${d.vat==="НӨАТ ороогүй"?"ороогүй":"орсон"} болно.${d.serial?` Арал/серийн дугаар: ${d.serial}.`:""}${d.certNo?` Гэрчилгээний дугаар: ${d.certNo}.`:""}`},
+    "Түрээслүүлэгч, Түрээслэгч талууд нь гэрээгээр хүлээсэн үүргээ биелүүлэхтэй холбогдон үүсэх харилцааг зохицуулахдаа машин механизмыг түрээсээр ажиллуулах журам болон Монгол Улсын бусад хууль тогтоомжийг удирдлага болгон ажиллана."]]);
+  S.push(["Хоёр. Гэрээний үнэ, төлбөрийн нөхцөл, хугацаа",[
+    day?"Түрээсийн төлбөрийг энэхүү гэрээний 1.3-т заасан нэг өдрийн түрээсийн үнэлгээгээр, баталгаажсан замын хуудсаар тооцсон ажилласан өдрийн тоогоор тооцно."
+       :"Түрээсийн төлбөрийг энэхүү гэрээний 1.3-т заасан нэг сарын түрээсийн үнэлгээгээр тооцох бөгөөд сарын бүтэн бус хугацаанд баталгаажсан замын хуудсаар тооцсон ажилласан өдрийг сарын 26 ажлын өдөрт харьцуулж тооцно.",
+    ...(adv?[`Түрээслэгч нь нэг сарын түрээсийн төлбөрийн ${adv} хувьтай тэнцэх урьдчилгааг${day?" (нэг өдрийн түрээсийг 26 хоногоор тооцож)":""} машин механизм түрээсэнд гарахаас өмнө Түрээслүүлэгчийн дансанд шилжүүлэх бөгөөд урьдчилгааг эхний сарын түрээсийн тооцооноос суутгана.`]:[]),
+    "Түрээсийн тооцоог сар бүрийн 25-ны дотор нийлж баталгаажуулах ба тооцоо нийлсэнээс хойш 3 хоногийн дотор Түрээслүүлэгчийн дансанд шилжүүлнэ. Эцсийн тооцоог гэрээг дүгнэж акт үйлдсэнээр хийнэ.",
+    "Гэрээгээр тогтоосон хугацаат үүргийг биелүүлээгүй тал хугацаа хэтрүүлсэн хоног тутамд гүйцэтгээгүй үүргийн үнийн дүнгийн 0.1 хувиар нөгөө талдаа алданги төлнө.",
+    "Захиалагчаас ажил эхлүүлэх зөвшөөрөл олгосон өдрөөс хойш Түрээслэгч талын мэдэгдлээр машин механизмыг ажлын талбайд ажиллуулна.",
+    "Гэрээт ажлын гүйцэтгэлийн хугацааг баталгаажсан замын хуудас /түрээсийн техник болон механизмын тооцооны хуудас/-аар тодорхойлно.",
+    `Гэрээний хугацаа ${rDate(d.start)}-${rSuf(d.start)} өдрөөс эхлэн ${rDate(d.end)}-${rSuf(d.end)} өдрийг хүртэл байна.`]]);
+  S.push(["Гурав. Түрээслүүлэгчийн эрх, үүрэг",[
+    "Түрээслүүлэгч нь Түрээслэгчийн захиалгын дагуу ажлыг хийж гүйцэтгэнэ.",
+    "Гэрээний хугацаанд жолооч, оператор нь гэмт хэрэгт холбогдсон, мөн өөрийн буруутай үйл ажиллагаанаас осол аваар гаргасан тохиолдолд хариуцлагыг Түрээслүүлэгч дангаар бүрэн хариуцна.",
+    "Жолооч, оператор нь объектын дарга, ИТА-аас тавьсан шаардлагыг бүрэн биелүүлж, аюулгүй ажиллагааг хатуу мөрдөж, ачаа тээврийн бүрэн бүтэн байдлыг хангаж ажиллана.",
+    "Жолооч, оператор нь ажил тасалдуулахгүй байх, сахилга батын болон архи, согтууруулах ундаа хэрэглэх, түлш болон бусад эд зүйлс хулгайлах зэрэг зөрчил гаргахгүй байх ба энэ заалт зөрчигдсөн тохиолдолд гэрээг цуцалж, түрээсээр ажилласан хөлсийг олгохгүй.",
+    "Түрээслүүлэгчийн оператор, жолооч нь Түрээслэгчийн өгсөн үүрэг даалгаврыг зааврын дагуу, хөдөлмөрийн аюулгүй байдал, эрүүл ахуйн шаардлагыг хангаж, ажлын хувцас, каск зэргийг тогтмол хэрэглэж, шуурхай гүйцэтгэнэ.",
+    "Оператор, жолооч нь мэргэжлийн хувьд чадварлаг байх, ажлын цагийг чанд баримтлан сахилга батыг өндөр түвшинд тавьж ажиллана.",
+    "Түрээслүүлэгчийн оператор, жолооч нь кемп болон ажлын талбайд Түрээслэгчийн ажлын болон кемпийн журамд захирагдан ажиллана.",
+    "Түрээслүүлэгчийн оператор, жолооч нь өөрийн буруутай, санамсаргүй болгоомжгүй үйл ажиллагаанаас болж Түрээслэгчийн болон гуравдагч этгээдийн эд хөрөнгө, амь нас, эрүүл мэндэд хохирол учруулсан тохиолдолд хохирлыг Түрээслүүлэгч өөрийн зардлаар бүрэн хариуцна.",
+    "Түрээслүүлэгч нь машин механизмын жигд, хэвийн ажиллагаа болон шаардлагатай сэлбэг хэрэгсэл, тос тосолгооны материал, засвар үйлчилгээтэй холбогдон гарах зардлыг бүрэн хариуцна.",
+    d.fuelBy==="Түрээслэгч"?"Машин механизмын ажлын явцад шаардагдах түлшийг Түрээслэгч хангах ба Түрээслүүлэгч нь машин механизмыг ажлын байранд хүргэх, буцаах зардлыг хариуцна. Түлшний зарцуулалт нормоос хэтэрсэн тохиолдолд хэтэрсэн түлшний үнийг түрээсийн тооцооноос хасч тооцно."
+      :"Түрээслүүлэгч нь машин механизмыг ажлын байранд хүргэх, буцаах зардал болон түлшийг хариуцах ба Түрээслэгчээс түлш авсан тохиолдолд түүний үнийг түрээсийн тооцооноос хасч тооцно.",
+    "Түрээслүүлэгч нь машин механизмын байдал, ашиглаж буй нөхцөл, ажиллаж буй цаг, ачааллын байдалтай газар дээр нь танилцах эрхтэй.",
+    "Түрээслүүлэгч нь Түрээслэгчээс түрээсийн төлбөрийг хугацаанд нь төлөхийг шаардах эрхтэй.",
+    "Түрээслүүлэгчийн оператор, жолооч ажил гүйцэтгэх явцад алдаа гаргаж машин механизмд эвдрэл гэмтэл учирсан тохиолдолд Түрээслүүлэгч нь түүнийг өөрийн зардлаар түргэн шуурхай засварлах, засварлах боломжгүй бол өөр машин механизмаар яаралтай сольж, Түрээслэгчийг ажлын хугацаа алдалгүй гүйцэтгэх нөхцөлөөр хангах үүрэгтэй.",
+    "Түрээслүүлэгчийн оператор, жолооч нарт Түрээслэгч талын инженер ХАБЭА-н зөвлөгөө, зааварчилгаа өгч ажиллах бөгөөд түүнийг зөрчсөнөөс үүдэн гарах аливаа эрсдэлийг Түрээслүүлэгч хариуцна.",
+    "Түрээслүүлэгчийн оператор, жолооч нь ажил эхлэх, дуусах цагийг хариуцсан ажилтан болон инженерийн гарын үсгээр баталгаажуулснаар тухайн өдрийн ажил тооцогдоно.",
+    "Түрээслүүлэгчийн оператор, жолооч нь тухайн өдрийн ажлын /замын/ хуудсаа бөглөж гарын үсэг зуруулаагүй тохиолдолд ажил гүйцэтгэсэн хоног хасагдаж тооцогдоно.",
+    "Түрээслүүлэгчийн оператор, жолооч нь ажил үүргийг гүйцэтгэхдээ заавал хариуцсан инженер болон харьяалах ажилтны зааварчилгаагаар ажиллана."]]);
+  S.push(["Дөрөв. Түрээслэгчийн эрх, үүрэг",[
+    "Түрээслэгч нь машин механизмын түрээсийн төлбөрийг гэрээнд заасан хугацаанд саадгүй төлнө.",
+    "Жолооч, операторт ажлын талбар дээр хөдөлмөр хамгаалал, аюулгүй ажиллагааны зааварчилгаа өгч, гарын үсэг зуруулж, удирдлагаар хангаж ажиллана.",
+    "Объектод ажиллаж буй машин механизмын ажиллах хугацааг наашлуулах буюу сунгах шаардлага гарвал Түрээслүүлэгчид урьдчилан мэдэгдэнэ.",
+    "Түрээслэгч нь машин механизмыг ажлын талбай дээр зориулалтын дагуу ашиглах, ажлын бус цагт найдвартай хадгалах үүрэгтэй.",
+    "Түрээслүүлэгчийн оператор, жолоочийг хоол болон байраар хангана.",
+    "Машин механизмын оператор, жолоочийн үндсэн ажлын цаг 07:00-22:00 хүртэл байх бөгөөд шаардлагатай тохиолдолд илүү цагаар ажиллуулж болно.",
+    "Түрээслүүлэгчийн оператор, жолооч ур чадвар, ёс суртахууны хувьд асуудал үүсгэсэн тохиолдолд Түрээслүүлэгчид мэдэгдэж солиулах эрхтэй."]]);
+  S.push(["Тав. Давагдашгүй хүчин зүйл",[
+    "Гэнэтийн буюу давагдашгүй хүчин зүйл /гал түймэр, үер усны гамшиг болон бусад байгалийн үзэгдэл, гадаад худалдааны хорио цээр, Засгийн газраас тавьсан хориг гэх мэт/-ийн улмаас Түрээслүүлэгч, Түрээслэгчийн аль нэг нь хууль тогтоомж болон энэхүү гэрээгээр хүлээсэн үүргээ зохих ёсоор биелүүлж чадахгүй болсон тохиолдолд нөгөө талдаа ажлын 3 хоногт багтаан бичгээр мэдэгдэж, үүрэг гүйцэтгэх хугацааны талаар харилцан зөвшилцөж шийдвэрлэнэ.",
+    "Байгалийн гамшигт үзэгдэл болон агаарын нөхцөл байдлаас шалтгаалан сул зогссон тохиолдолд түрээсийн хоногийг тооцохгүй.",
+    "Энэхүү гэрээг хэрэгжүүлэх хүрээнд Талуудын хооронд гарсан аливаа санал зөрөлдөөнийг харилцан тохиролцож, зөвшилцлийн замаар шийдвэрлэх ба тохиролцоонд хүрч чадаагүй тохиолдолд маргааныг Түрээслүүлэгчийн оршин байгаа нутаг дэвсгэрийн харьяаллын шүүхээр шийдвэрлүүлнэ."]]);
+  S.push(["Зургаа. Бусад",[
+    "Гэрээг 2 хувь үйлдэх бөгөөд Талууд гарын үсэг зурж баталсан өдрөөс эхлэн хүчин төгөлдөр болно.",
+    "Гэрээгээр хүлээсэн үүргээ аль нэг тал биелүүлээгүйгээс учирсан хохирлыг буруутай тал хариуцаж барагдуулна.",
+    "Гэрээнд нэмэлт, өөрчлөлт оруулах болон хугацааг сунгах тохиолдолд Талууд харилцан тохиролцож шийдвэрлэнэ.",
+    "Энэхүү гэрээг биелүүлэхтэй холбогдон гарсан маргааныг эвлэрлийн журмаар шийдвэрлэхийг эрмэлзэх ба тохиролцоонд хүрч чадахгүй бол хууль тогтоомжийн дагуу шүүхээр шийдвэрлүүлнэ.",
+    "Энэхүү гэрээг Монгол хэл дээр хоёр хувь үйлдсэн бөгөөд Түрээслүүлэгч, Түрээслэгч тус бүр нэг хувийг хадгална."]]);
+  return {
+    batL:["БАТЛАВ:",co?rUp(d.oname)+"-ИЙН":"ТҮРЭЭСЛҮҮЛЭГЧ",co?rUp((d.orep||"Захирал")+" "+d.orepName):"ИРГЭН "+rUp(d.oname)],
+    batR:["БАТЛАВ:",AAS.up+"-ИЙН",rUp(AAS.rep+" "+AAS.repName)],
+    title:"МАШИН МЕХАНИЗМ ТҮРЭЭСЭЭР АЖИЛЛУУЛАХ ГЭРЭЭ", no:"№ "+x.no, dateL:`${rDate(cd)} өдөр`, dateR:"Улаанбаатар хот",
+    pre:`Энэхүү гэрээг нэг талаас ${lessor} (цаашид “Түрээслүүлэгч” гэх), нөгөө талаас ${AAS.name}-ийг /РД:${AAS.reg}/ төлөөлж ${AAS.rep.toLowerCase()} ${AAS.repName} (цаашид “Түрээслэгч” гэх) нар (хамтад нь “Талууд” гэх) Монгол Улсын Иргэний хуулийн 318 дугаар зүйл болон холбогдох бусад хууль тогтоомж, дүрэм, журмыг удирдлага болгон дараах нөхцөлийг харилцан тохиролцож байгуулав.`,
+    S,
+    signL:["Түрээслүүлэгчийг төлөөлж:",d.oname,co?`${d.orep||"Захирал"} ${d.orepName}`:`Иргэн ${d.oname}`,`РД: ${d.oreg}`,...(d.address?[`Хаяг: ${d.address}`]:[]),`Утас: ${d.phone}`,`Банк: ${d.bank}`,`Данс: ${d.acct}${d.acctName?` (${d.acctName})`:""}`,"","Гарын үсэг: ____________________"],
+    signR:["Түрээслэгчийг төлөөлж:",AAS.name,`${AAS.rep} ${AAS.repName}`,`РД: ${AAS.reg}`,`Утас: ${AAS.phone}`,"","","","","Гарын үсэг: ____________________"]};
+}
+function imgSize(src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>res({w:1,h:1}); i.src=src; }); }
+async function rentPdf(x,imgs){ const pm=await needPdf(), mm=v=>v*72/25.4, T=rentText(x), F={font:"Times",fontSize:12};
+  const c=[{columns:[{stack:T.batL.map((t,i)=>({text:t,bold:i>0}))},{stack:T.batR.map((t,i)=>({text:t,bold:i>0})),alignment:"right"}],fontSize:11,margin:[0,0,0,mm(10)]},
+    {text:T.title,bold:true,alignment:"center",fontSize:13},{text:T.no,alignment:"center",margin:[0,2,0,mm(4)]},
+    {columns:[{text:T.dateL},{text:T.dateR,alignment:"right"}],margin:[0,0,0,mm(4)]},{text:T.pre,alignment:"justify",leadingIndent:mm(12.5)}];
+  T.S.forEach(([h,items],si)=>{ c.push({text:h,bold:true,alignment:"center",margin:[0,mm(4),0,mm(2)]});
+    items.forEach((it,ii)=>{ const n=`${si+1}.${ii+1}. `;
+      if(it.table){ c.push({text:n+it.lead,alignment:"justify",leadingIndent:mm(12.5)});
+        c.push({table:{headerRows:1,widths:[mm(8),"*","*",mm(26),mm(22),mm(32)],body:[it.head.map(t=>({text:t,bold:true,fontSize:10.5,alignment:"center"})),it.row.map((t,j)=>({text:t,fontSize:11,alignment:j===5?"right":"left"}))]},layout:{hLineWidth:()=>.6,vLineWidth:()=>.6,paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>2,paddingBottom:()=>2},margin:[0,3,0,3]});
+        c.push({text:it.note,fontSize:11,italics:false,margin:[0,0,0,2]}); }
+      else c.push({text:n+it,alignment:"justify",leadingIndent:mm(12.5)}); }); });
+  c.push({text:"ГЭРЭЭ БАЙГУУЛСАН:",bold:true,margin:[0,mm(8),0,mm(3)]});
+  c.push({unbreakable:true,columns:[{stack:T.signL.map((t,i)=>({text:t||" ",bold:i<2}))},{stack:T.signR.map((t,i)=>({text:t||" ",bold:i<2}))}],columnGap:mm(10),fontSize:11.5});
+  let k=0; for(const [key,label] of RKEYS){ const src=imgs[key]; if(!src) continue; k++; const s=await imgSize(src), W=mm(170), H=mm(235), sc=Math.min(W/s.w,H/s.h);
+    c.push({text:`Хавсралт ${k}. ${label}`,bold:true,pageBreak:"before",margin:[0,0,0,mm(4)]},{image:src,width:s.w*sc,height:s.h*sc,alignment:"center"}); }
+  const dd={pageSize:"A4",pageMargins:[mm(25),mm(15),mm(15),mm(18)],content:c,defaultStyle:{...F,lineHeight:1.15},info:{title:"Түрээсийн гэрээ "+x.no,author:"Аасгалдай ХХК"},
+    footer:(cp,pc)=>({text:`${T.no} · ${cp}/${pc}`,alignment:"right",fontSize:9,font:"Arial",color:"#666",margin:[0,0,mm(15),0]})};
+  return await new Promise(res=>pm.createPdf(dd).getBlob(res)); }
+async function rentDocx(x,imgs){ const D=await needDocx(), T=rentText(x), F="Times New Roman", tw=v=>Math.round(v*56.7);
+  const R=(t,o={})=>new D.TextRun({text:t,font:F,size:o.size||24,bold:o.bold});
+  const P=(t,o={})=>new D.Paragraph({alignment:o.al,spacing:{after:o.after||0,before:o.before||0},indent:o.ind?{firstLine:tw(12.5)}:undefined,pageBreakBefore:o.pb,children:Array.isArray(t)?t:[R(t,o)]});
+  const none={style:D.BorderStyle.NONE,size:0,color:"FFFFFF"}, nb={top:none,bottom:none,left:none,right:none,insideHorizontal:none,insideVertical:none}, cb={top:none,bottom:none,left:none,right:none};
+  const sb={style:D.BorderStyle.SINGLE,size:4,color:"000000"}, tb={top:sb,bottom:sb,left:sb,right:sb};
+  const two=(L,Rr,o={})=>new D.Table({width:{size:tw(170),type:D.WidthType.DXA},columnWidths:[tw(85),tw(85)],layout:D.TableLayoutType.FIXED,borders:nb,rows:[new D.TableRow({children:[
+    new D.TableCell({width:{size:tw(85),type:D.WidthType.DXA},borders:cb,children:L.map((t,i)=>P(t||" ",{bold:o.bold?o.bold(i):false,size:o.size}))}),
+    new D.TableCell({width:{size:tw(85),type:D.WidthType.DXA},borders:cb,children:Rr.map((t,i)=>P(t||" ",{bold:o.bold?o.bold(i):false,size:o.size,al:o.rightAl?D.AlignmentType.RIGHT:undefined}))})]})]});
+  const ch=[two(T.batL,T.batR,{bold:i=>i>0,size:22,rightAl:true}),P("",{after:200}),P(T.title,{bold:true,al:D.AlignmentType.CENTER,size:26}),P(T.no,{al:D.AlignmentType.CENTER,after:120}),
+    new D.Paragraph({tabStops:[{type:D.TabStopType.RIGHT,position:tw(170)}],spacing:{after:120},children:[R(T.dateL),R("\t"+T.dateR)]}),P(T.pre,{ind:true,al:D.AlignmentType.JUSTIFIED})];
+  T.S.forEach(([h,items],si)=>{ ch.push(P(h,{bold:true,al:D.AlignmentType.CENTER,before:160,after:80}));
+    items.forEach((it,ii)=>{ const n=`${si+1}.${ii+1}. `;
+      if(it.table){ ch.push(P(n+it.lead,{ind:true,al:D.AlignmentType.JUSTIFIED})); const W=[8,30,34,26,22,30].map(tw);
+        ch.push(new D.Table({width:{size:W.reduce((a,b)=>a+b,0),type:D.WidthType.DXA},columnWidths:W,layout:D.TableLayoutType.FIXED,rows:[it.head,it.row].map((r,i)=>new D.TableRow({children:r.map((t,j)=>new D.TableCell({width:{size:W[j],type:D.WidthType.DXA},borders:tb,margins:{left:60,right:60,top:30,bottom:30},children:[P(t,{bold:i===0,size:i===0?21:22,al:i===0?D.AlignmentType.CENTER:(j===5?D.AlignmentType.RIGHT:undefined)})]}))}))}));
+        ch.push(P(it.note,{size:22,after:60})); }
+      else ch.push(P(n+it,{ind:true,al:D.AlignmentType.JUSTIFIED})); }); });
+  ch.push(P("ГЭРЭЭ БАЙГУУЛСАН:",{bold:true,before:360,after:120}),two(T.signL,T.signR,{bold:i=>i<2,size:23}));
+  let k=0; for(const [key,label] of RKEYS){ const src=imgs[key]; if(!src) continue; k++; const s=await imgSize(src), W=640, H=880, sc=Math.min(W/s.w,H/s.h);
+    ch.push(P(`Хавсралт ${k}. ${label}`,{bold:true,pb:true,after:160}),new D.Paragraph({alignment:D.AlignmentType.CENTER,children:[new D.ImageRun({data:dataUrlBytes(src),transformation:{width:Math.round(s.w*sc),height:Math.round(s.h*sc)}})]})); }
+  const doc=new D.Document({creator:"Аасгалдай ХХК",title:"Түрээсийн гэрээ "+x.no,sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:tw(15),bottom:tw(18),left:tw(25),right:tw(15)}}},children:ch}]});
+  return await D.Packer.toBlob(doc); }
+
+const RF=[["Түрээслүүлэгч",[["ptype","Төрөл",["Хувь хүн","Байгууллага"]],["oname","Нэр (байгууллага эсвэл овог нэр)"],["oreg","Регистр"],["orep","Албан тушаал (байгууллага)"],["orepName","Төлөөлөгчийн нэр (байгууллага)"],["phone","Утас"],["email","И-мэйл"],["address","Хаяг"]]],
+  ["Данс",[["bank","Банк"],["acct","Дансны дугаар"],["acctName","Данс эзэмшигч"]]],
+  ["Техник",[["eqType","Төрөл"],["eqMake","Марк, загвар"],["plate","Улсын дугаар"],["year","Үйлдвэрлэсэн он"],["serial","Арал / серийн дугаар"],["certNo","Гэрчилгээний дугаар"]]],
+  ["Нөхцөл",[["rateType","Түрээсийн нэгж",["Өдөр","Сар"]],["rate","Түрээсийн үнэлгээ, ₮"],["vat","НӨАТ",["НӨАТ орсон","НӨАТ ороогүй"]],["start","Эхлэх огноо"],["end","Дуусах огноо"],["fuelBy","Түлш хариуцах",["Түрээслүүлэгч","Түрээслэгч"]],["note","Тэмдэглэл"]]]];
+const RS={"Шинэ":"st-wait","Баталсан":"st-paid","Буцаасан":"st-no"};
+function renderRent(m,h){ const R=S.R=S.R||{f:"Шинэ",imgs:{}};
+  if(!R.data){ m.innerHTML=h+`<div class="card empty">Ачаалж байна…</div>`; api("rentList").then(r=>{ R.data=r; S.rentNew=r.list.filter(x=>x.status==="Шинэ").length; render(); }).catch(e=>{ m.innerHTML=h+`<div class="card empty">${esc(e.message)}</div>`; }); return; }
+  const L=R.data.list;
+  if(R.cur){ const x=L.find(y=>y.id===R.cur); if(x) return rentView(m,h,x); R.cur=null; }
+  const cnt=s=>L.filter(x=>x.status===s).length, list=L.filter(x=>!R.f||x.status===R.f);
+  h+=`<div class="small muted" style="margin:2px 2px 8px">Сайтын «Техник түрээслүүлэх» маягтаар ирсэн хүсэлтүүд: <b>aasgaldai.mn/turees.html</b></div>
+   <div class="chips">${[["Шинэ","🆕 Шинэ"],["Баталсан","✅ Баталсан"],["Буцаасан","↩️ Буцаасан"],["","Бүгд"]].map(([k,l])=>`<button data-rf="${k}" aria-pressed="${R.f===k}">${l} · ${k?cnt(k):L.length}</button>`).join("")}</div>`;
+  h+=list.length?list.map(x=>`<button class="card req" data-ropen="${esc(x.id)}" style="display:block;width:100%;text-align:left"><div class="top"><div class="what">${esc(x.d.eqType)} ${esc(x.d.eqMake)} · ${esc(x.d.plate)}</div><div class="amt">${fmt(x.d.rate)} ₮/${x.d.rateType==="Сар"?"сар":"өдөр"}</div></div>
+     <div class="tags"><span class="tag">${esc(x.d.oname)}</span>${x.no?`<span class="tag">${esc(x.no)}</span>`:""}${x.proj?`<span class="tag">${esc(x.proj)}</span>`:""}<span class="st ${RS[x.status]||""}">${esc(x.status)}</span></div>
+     <div class="meta">${esc(x.d.start)} — ${esc(x.d.end)} · ирсэн ${esc(String(x.at).slice(0,10))}</div></button>`).join(""):`<div class="card empty">Хүсэлт алга.</div>`;
+  m.innerHTML=h; }
+function rentView(m,h,x){ const R=S.R, d=x.d, dir=isDir(), P=(S.meta?.projects||[]).filter(p=>p[0]!==GEN), ok=x.status==="Баталсан";
+  if(!R.edit||R.edit.id!==x.id) R.edit={id:x.id,d:{...d},proj:x.proj||R.lastProj||"",projName:d.projName||"",advance:d.advance||0,cdate:d.cdate||R.data.today};
+  const E=R.edit; if(E.proj&&!E.projName){ const p=P.find(q=>q[0]===E.proj); if(p) E.projName=p[2]||p[1]; }
+  const inp=([k,l,opts])=>opts?`<div class="f"><span>${l}</span><div class="chips">${opts.map(o=>`<button type="button" data-rv="${k}" data-o="${esc(o)}" aria-pressed="${E.d[k]===o}" ${dir?"":"disabled"}>${esc(o)}</button>`).join("")}</div></div>`
+    :`<label class="f">${l}<input data-rk="${k}" ${["start","end"].includes(k)?'type="date"':""} value="${esc(E.d[k]??"")}" ${dir?"":"readonly"}></label>`;
+  h+=`<button class="big" data-rback>← Жагсаалт</button>
+   <div class="card"><div class="urow"><div class="nm"><b>${esc(d.oname)} · ${esc(d.plate)}</b><span class="small muted">${esc(x.id)} · ирсэн ${esc(String(x.at).slice(0,16).replace("T"," "))}${x.by?` · ${esc(x.by)}`:""}</span></div><span class="st ${RS[x.status]||""}">${esc(x.status)}</span></div>
+   ${ok?`<div class="small" style="margin-top:6px">Гэрээ <b>${esc(x.no)}</b> · ${esc(x.proj)}${x.eqId?" · «Техник»-т бүртгэгдсэн":""}</div><div class="actions" style="margin-top:10px"><button class="primary" data-rdl="pdf">⬇ Гэрээ PDF</button><button class="primary" data-rdl="docx">⬇ Гэрээ Word</button></div>`:""}</div>
+   <h3 class="sec">Хавсралт</h3><div class="card"><div class="actions" style="flex-wrap:wrap">${RKEYS.map(([k,l])=>d.has&&d.has[k]?`<button data-rimg="${k}">${R.imgs[x.id+k]?"✓ ":""}${esc(l)}</button>`:"").join("")||`<span class="small muted">Зураггүй</span>`}</div><div id="rImgs">${RKEYS.map(([k,l])=>R.imgs[x.id+k]?`<div class="small muted" style="margin-top:8px">${esc(l)}</div><div class="photo"><img src="${R.imgs[x.id+k]}" alt=""></div>`:"").join("")}</div></div>`;
+  h+=RF.map(([t,fs])=>`<h3 class="sec">${t}</h3><div class="card form">${fs.map(inp).join("")}</div>`).join("");
+  if(dir){ h+=`<h3 class="sec">${ok?"Гэрээний мэдээлэл":"Батлах"}</h3><div class="card form">
+     <div class="f"><span>Төсөл (манай тал)</span><div class="chips">${P.map(p=>`<button type="button" data-rproj="${esc(p[0])}" aria-pressed="${E.proj===p[0]}">${esc(p[0])}</button>`).join("")}</div></div>
+     <label class="f">Гэрээнд бичигдэх төслийн нэр<textarea id="r_pname" rows="2" placeholder="Төслөө сонгоход автоматаар бөглөгдөнө">${esc(E.projName)}</textarea><span class="small muted">Төслийн «Мэдээлэл засах» дотор «Гэрээнд бичигдэх бүтэн нэр» оруулсан бол түүгээр бөглөгдөнө.</span></label>
+     <div class="row2"><label class="f">Гэрээний огноо<input id="r_cdate" type="date" value="${esc(E.cdate)}"></label><label class="f">Урьдчилгаа, % (0 = урьдчилгаагүй)<input id="r_adv" inputmode="numeric" value="${esc(E.advance)}"></label></div>
+     <div id="rErr" class="banner" hidden></div>
+     <button class="primary big" data-rok>${ok?"💾 Өөрчлөлтийг хадгалах":"✅ Батлаад гэрээ бэлтгэх"}</button>
+     ${ok?"":`<label class="f">Буцаах шалтгаан<input id="r_note" placeholder="Жишээ: үнэ тохирохгүй"></label><div class="actions"><button class="danger" data-rno>Буцаах</button><button class="danger" data-rdel>${R.delAsk===x.id?"Дахин дарж устгана":"Устгах (спам)"}</button></div>`}
+     ${ok?"":`<div class="small muted">Баталснаар гэрээний дугаар олгогдож, техник «Техник» хэсэгт түрээсийн техник болж бүртгэгдэнэ.</div>`}</div>`; }
+  m.innerHTML=h; }
+const rCollect=()=>{ const E=S.R.edit; document.querySelectorAll("[data-rk]").forEach(i=>{ E.d[i.dataset.rk]=i.value; }); if($("#r_pname")) E.projName=$("#r_pname").value; if($("#r_cdate")) E.cdate=$("#r_cdate").value; if($("#r_adv")) E.advance=$("#r_adv").value.replace(/\D/g,""); };
+async function rImg(x,k){ const key=x.id+k; if(!S.R.imgs[key]){ const r=await api("rentFile",{id:x.id,key:k}); S.R.imgs[key]=r.data||""; } return S.R.imgs[key]; }
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("[data-rf],[data-ropen],[data-rback],[data-rimg],[data-rv],[data-rproj],[data-rok],[data-rno],[data-rdel],[data-rdl]"); if(!t||S.tab!=="fuel"||S.fview!=="rent"||!S.R) return;
+  const R=S.R, D=t.dataset, x=R.cur&&R.data.list.find(y=>y.id===R.cur);
+  if(D.rf!=null){ R.f=D.rf; render(); return; }
+  if(D.ropen){ R.cur=D.ropen; R.edit=null; R.delAsk=null; render(); scrollTo(0,0); return; }
+  if(t.hasAttribute("data-rback")){ R.cur=null; render(); return; }
+  if(!x) return;
+  if(D.rimg){ t.disabled=true; try{ await rImg(x,D.rimg); rCollect(); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(D.rv){ rCollect(); R.edit.d[D.rv]=D.o; render(); return; }
+  if(D.rproj){ rCollect(); const p=(S.meta?.projects||[]).find(q=>q[0]===D.rproj); R.edit.proj=D.rproj; R.lastProj=D.rproj; R.edit.projName=(p&&(p[2]||p[1]))||""; render(); return; }
+  if(t.hasAttribute("data-rok")){ rCollect(); const E=R.edit; if(!E.proj) return showErr("#rErr","Төслөө сонгоно уу."); if(!E.projName.trim()) return showErr("#rErr","Гэрээнд бичигдэх төслийн нэрийг бичнэ үү.");
+    t.disabled=true; try{ R.data=await api("rentDecide",{id:x.id,ok:true,d:E.d,proj:E.proj,projName:E.projName,advance:E.advance,cdate:E.cdate}); R.edit=null; S.fuel=null; S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast(x.status==="Баталсан"?"Хадгалагдлаа":"Баталлаа. Гэрээ бэлэн боллоо"); render(); scrollTo(0,0); }catch(e){ showErr("#rErr",e.message); t.disabled=false; } return; }
+  if(t.hasAttribute("data-rno")){ const note=$("#r_note")?.value.trim(); if(!note){ toast("Буцаах шалтгаанаа бичнэ үү"); $("#r_note")?.focus(); return; } t.disabled=true;
+    try{ R.data=await api("rentDecide",{id:x.id,ok:false,note}); S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast("Буцаалаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(t.hasAttribute("data-rdel")){ if(R.delAsk!==x.id){ R.delAsk=x.id; rCollect(); render(); return; } t.disabled=true; try{ R.data=await api("rentDelete",{id:x.id}); R.cur=null; S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(D.rdl){ const old=t.textContent; t.disabled=true; t.textContent="Бэлдэж байна…";
+    try{ const imgs={}; for(const [k] of RKEYS) if(x.d.has&&x.d.has[k]) imgs[k]=await rImg(x,k);
+      const xx={...x,today:R.data.today}, name="Түрээсийн гэрээ "+x.no.replace(/[\/№ ]/g,"-")+" "+x.d.plate.replace(/\s/g,"")+(D.rdl==="pdf"?".pdf":".docx");
+      const blob=D.rdl==="pdf"?await rentPdf(xx,imgs):await rentDocx(xx,imgs); await saveOrShare(blob,name); }
+    catch(e){ toast(e.message||String(e)); }
+    t.disabled=false; t.textContent=old; return; }
+},true);
+return {renderRent};
+})();
+
 document.addEventListener("click",async ev=>{
   const t=ev.target.closest("#contacts,[data-ctclose],[data-reg],[data-regback],[data-setlimit],#tabsIn button"); if(!t) return;
   if(t.matches("#tabsIn button")){ if(S.contacts){ S.contacts=false; } return; }
@@ -2512,7 +2689,7 @@ async function load(quiet){
     const r=await api("boot");
     S.meta=r.meta; S.reqs=r.reqs.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     if(r.projects) S.dash=r.projects;
-    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false; S.pmFin=!!r.fin; S.loansOpen=r.loansOpen||[]; S.emps=r.emps||[];
+    S.myProjects=r.myProjects||null; S.canReq=r.canReq!==false; S.pmFin=!!r.fin; if(r.rentNew!=null&&S.rentNew!==r.rentNew){ S.rentNew=r.rentNew; if(S.R) S.R.data=null; } S.loansOpen=r.loansOpen||[]; S.emps=r.emps||[];
     if(r.meal) setTimeout(()=>mealPopup(r.meal),400);
     if(r.hr){ const before=S.hrBadge?.newTasks; S.hrBadge=r.hr; if(r.hr.newTasks&&r.hr.newTasks!==before){ toast(`Танд ${r.hr.newTasks} шинэ даалгавар ирлээ`); try{ if(window.Notification&&Notification.permission==="granted") new Notification("Аасгалдай",{body:`${r.hr.newTasks} шинэ даалгавар`}); }catch(e){} } }
     if(r.hab){ S.habBadge=r.hab; if(r.hab.unread&&!S.habPopped&&!isHab()) loadHab().then(habPopup); }
@@ -2682,7 +2859,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261030110353";
+const BUILD="20261030133214";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
