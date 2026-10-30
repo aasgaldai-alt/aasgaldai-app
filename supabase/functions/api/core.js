@@ -391,6 +391,9 @@ function handle_(b) {
         if (!boss) all = all.filter(function (r) { return r.by === me.name || pmSees_(me, r); }); // ажилчин зөвхөн өөрийнхийг, ТУ өөрийн төслийнхийг
         return { reqs: all.slice(-500) };
       case 'create': return { req: create_(me, b.req, b.photo) };
+      case 'deleteReq':
+        if (!director) return deny_();
+        return deleteReq_(b.id);
       case 'status':
         if (!boss) return deny_();
         return { req: setStatus_(me, b.id, b.status, b.note) };
@@ -1899,6 +1902,22 @@ function loanDel_(id, isTx) {
     var sh = loanSheet_(), v = sh.getDataRange().getValues();
     for (var k = v.length - 1; k >= 1; k--) if (String(v[k][0]) === id) sh.deleteRow(k + 1);
   } finally { lock.releaseLock(); }
+}
+// Захирал хүсэлтийг бүрмөсөн устгана: холбогдох зээл/урьдчилгаа болон түүний гүйлгээг хамт устгана
+function deleteReq_(id) {
+  id = String(id || ''); if (!id) throw new Error('Хүсэлт олдсонгүй');
+  var sh = sh_('Хүсэлт'), v = sh.getDataRange().getValues(), row = -1;
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === id) { row = i + 1; break; }
+  if (row < 0) throw new Error('Хүсэлт олдсонгүй');
+  var lids = loans_().filter(function (l) { return l.req === id; }).map(function (l) { return l.id; }), nTx = 0;
+  if (lids.length || loanTxs_().some(function (t) { return t.req === id; })) {
+    var ts = loanTxSheet_(), tv = ts.getDataRange().getValues();
+    for (var a = tv.length - 1; a >= 1; a--) if (String(tv[a][6]) === id || lids.indexOf(String(tv[a][1])) >= 0) { ts.deleteRow(a + 1); nTx++; }
+    var ls = loanSheet_(), lv = ls.getDataRange().getValues();
+    for (var c = lv.length - 1; c >= 1; c--) if (lids.indexOf(String(lv[c][0])) >= 0) ls.deleteRow(c + 1);
+  }
+  sh.deleteRow(row);
+  return { ok: true, id: id, loans: lids.length, txs: nTx };
 }
 function loanOnPaid_(me, r) {
   var x = {}; try { x = JSON.parse(r.link || '{}'); } catch (e) {}

@@ -276,7 +276,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,reqDel:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -407,6 +407,7 @@ function demo(b){
       const pr=u.projects==="*"||u.projects==null?null:(u.projects||[]).filter(Boolean); if(pr&&!pr.length) return {error:"bad",message:"Дор хаяж нэг төсөл сонгоно уу"};
       const row={position:String(u.position||"").trim(),name,role:u.role,projects:pr,email:String(u.email||"").trim(),phone,pin:temp?"h:"+temp:ex.pin,mustChange:temp?true:ex.mustChange,fin:u.role==="Төслийн удирдагч"&&(me.role==="Захирал"&&u.fin!=null?!!u.fin:!!ex?.fin)};
       if(ex) Object.assign(ex,row); else D.users.push(row); save(); return {users:D.users.map(pub)}; }
+    case "deleteReq": { if(me.role!=="Захирал") return deny; D.reqs=D.reqs.filter(r=>r.id!==b.id); save(); return {ok:true,id:b.id,loans:0}; }
     case "deleteUser": { if(!boss&&me.role!=="Хүний нөөц") return deny; if(b.target===me.name) return {error:"bad",message:"Өөрийгөө устгах боломжгүй"};
       const ex=D.users.find(x=>x.name===b.target); if(ex?.role==="Захирал"&&!dir) return {error:"bad",message:"Захирлыг устгах эрхгүй"};
       D.users=D.users.filter(x=>x.name!==b.target); save(); return {users:D.users.map(pub)}; }
@@ -890,6 +891,8 @@ function renderDetail(m,r){
   if(isBoss()){
     if(r.status===ST.OK) h+=`<div class="card form"><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу.</div><button class="primary big" data-st="${ST.PAID}">Төлсөн гэж тэмдэглэх</button></div>`;
   }
+  if(isDir()) h+=`<div class="card form" style="margin-top:14px">${S.reqDel===r.id?`<div class="banner"><b>Энэ хүсэлтийг бүрмөсөн устгах уу?</b> Тайлан, төслийн зардал, ${r.rtype?"холбогдох зээл, урьдчилгааны бүртгэл, ":""}түүхээс хамт арилж, сэргээх боломжгүй.</div><div class="actions"><button data-reqdelno>Болих</button><button class="danger" data-reqdel="${esc(r.id)}">🗑 Тийм, устгах</button></div>`
+    :`<button class="danger" data-reqdel="${esc(r.id)}">🗑 Хүсэлтийг устгах</button><div class="small muted">Зөвхөн захиралд харагдана. Туршилтын болон алдаатай хүсэлтийг устгахад.</div>`}</div>`;
   m.innerHTML=h;
 }
 
@@ -2245,13 +2248,14 @@ function rentView(m,h,x){ const R=S.R, d=x.d, dir=isDir(), P=(S.meta?.projects||
      <div class="row2"><label class="f">Гэрээний огноо<input id="r_cdate" type="date" value="${esc(E.cdate)}"></label><label class="f">Урьдчилгаа, % (0 = урьдчилгаагүй)<input id="r_adv" inputmode="numeric" value="${esc(E.advance)}"></label></div>
      <div id="rErr" class="banner" hidden></div>
      <button class="primary big" data-rok>${ok?"💾 Өөрчлөлтийг хадгалах":"✅ Батлаад гэрээ бэлтгэх"}</button>
-     ${ok?"":`<label class="f">Буцаах шалтгаан<input id="r_note" placeholder="Жишээ: үнэ тохирохгүй"></label><div class="actions"><button class="danger" data-rno>Буцаах</button><button class="danger" data-rdel>${R.delAsk===x.id?"Дахин дарж устгана":"Устгах (спам)"}</button></div>`}
+     ${ok?"":`<label class="f">Буцаах шалтгаан<input id="r_note" placeholder="Жишээ: үнэ тохирохгүй"></label><div class="actions"><button class="danger" data-rno>Буцаах</button></div>`}
+     ${R.delAsk===x.id?`<div class="banner"><b>Энэ хүсэлтийг бүрмөсөн устгах уу?</b> ${ok?`Гэрээ ${esc(x.no)} бүртгэлээс арилна. «Техник» хэсэгт бүртгэгдсэн техникийг тусад нь устгана. `:""}Сэргээх боломжгүй.</div><div class="actions"><button data-rdelno>Болих</button><button class="danger" data-rdel>🗑 Тийм, устгах</button></div>`:`<button class="danger" data-rdel>🗑 Хүсэлтийг устгах</button>`}
      ${ok?"":`<div class="small muted">Баталснаар гэрээний дугаар олгогдож, техник «Техник» хэсэгт түрээсийн техник болж бүртгэгдэнэ.</div>`}</div>`; }
   m.innerHTML=h; }
 const rCollect=()=>{ const E=S.R.edit; document.querySelectorAll("[data-rk]").forEach(i=>{ E.d[i.dataset.rk]=i.value; }); if($("#r_pname")) E.projName=$("#r_pname").value; if($("#r_cdate")) E.cdate=$("#r_cdate").value; if($("#r_adv")) E.advance=$("#r_adv").value.replace(/\D/g,""); };
 async function rImg(x,k){ const key=x.id+k; if(!S.R.imgs[key]){ const r=await api("rentFile",{id:x.id,key:k}); S.R.imgs[key]=r.data||""; } return S.R.imgs[key]; }
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-rf],[data-ropen],[data-rback],[data-rimg],[data-rv],[data-rproj],[data-rok],[data-rno],[data-rdel],[data-rdl]"); if(!t||S.tab!=="fuel"||S.fview!=="rent"||!S.R) return;
+  const t=ev.target.closest("[data-rf],[data-ropen],[data-rback],[data-rimg],[data-rv],[data-rproj],[data-rok],[data-rno],[data-rdel],[data-rdelno],[data-rdl]"); if(!t||S.tab!=="fuel"||S.fview!=="rent"||!S.R) return;
   const R=S.R, D=t.dataset, x=R.cur&&R.data.list.find(y=>y.id===R.cur);
   if(D.rf!=null){ R.f=D.rf; render(); return; }
   if(D.ropen){ R.cur=D.ropen; R.edit=null; R.delAsk=null; render(); scrollTo(0,0); return; }
@@ -2264,6 +2268,7 @@ document.addEventListener("click",async ev=>{
     t.disabled=true; try{ R.data=await api("rentDecide",{id:x.id,ok:true,d:E.d,proj:E.proj,projName:E.projName,advance:E.advance,cdate:E.cdate}); R.edit=null; S.fuel=null; S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast(x.status==="Баталсан"?"Хадгалагдлаа":"Баталлаа. Гэрээ бэлэн боллоо"); render(); scrollTo(0,0); }catch(e){ showErr("#rErr",e.message); t.disabled=false; } return; }
   if(t.hasAttribute("data-rno")){ const note=$("#r_note")?.value.trim(); if(!note){ toast("Буцаах шалтгаанаа бичнэ үү"); $("#r_note")?.focus(); return; } t.disabled=true;
     try{ R.data=await api("rentDecide",{id:x.id,ok:false,note}); S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast("Буцаалаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
+  if(t.hasAttribute("data-rdelno")){ R.delAsk=null; rCollect(); render(); return; }
   if(t.hasAttribute("data-rdel")){ if(R.delAsk!==x.id){ R.delAsk=x.id; rCollect(); render(); return; } t.disabled=true; try{ R.data=await api("rentDelete",{id:x.id}); R.cur=null; S.rentNew=R.data.list.filter(y=>y.status==="Шинэ").length; toast("Устгагдлаа"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
   if(D.rdl){ const old=t.textContent; t.disabled=true; t.textContent="Бэлдэж байна…";
     try{ const imgs={}; for(const [k] of RKEYS) if(x.d.has&&x.d.has[k]) imgs[k]=await rImg(x,k);
@@ -2754,6 +2759,10 @@ document.addEventListener("click",async e=>{
   if(t.closest("[data-uchip]")){ S.uedit.role=D.v; if(S.uedit.tempPin){ S.uedit.tempPin=genPin(D.v); return render(); } t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
   if(t.closest("[data-chip]")){ const k=t.closest("[data-chip]").dataset.chip; S.draft[k]=D.v; if(k==="rt"&&$("#vatNo")){ $("#vatNo").hidden=D.v==="vat"; $("#vatNo").textContent=rtWarn(D.v); } if(k==="proj") store.set("aas_lastproj",D.v);
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); $("#descPrev").textContent=mkDesc(S.draft)||"—"; return; }
+  if(D.reqdelno!=null){ S.reqDel=null; render(); return; }
+  if(D.reqdel){ if(S.reqDel!==D.reqdel){ S.reqDel=D.reqdel; render(); return; } t.disabled=true;
+    try{ const r=await api("deleteReq",{id:D.reqdel}); S.reqs=S.reqs.filter(x=>x.id!==D.reqdel); S.reqDel=null; S.detail=null; S.dash=null; S.loans=null; saveCache(); toast("Хүсэлт устгагдлаа"+(r.loans?` (${r.loans} зээлийн бүртгэл хамт)`:"")); render(); }
+    catch(err){ t.disabled=false; result(false,"Устгах боломжгүй",err.message); } return; }
   if(D.st){ const note=$("#note")?.value.trim()||"";
     if(D.st===ST.NO&&!note){ toast("Буцаах шалтгаанаа бичнэ үү"); $("#note").focus(); return; }
     t.disabled=true; try{ const r=await api("status",{id:S.detail,status:D.st,note}); const i=S.reqs.findIndex(x=>x.id===r.req.id); S.reqs[i]=r.req; S.dash=null; toast({[ST.OK]:"Зөвшөөрлөө",[ST.NO]:"Буцаалаа",[ST.PAID]:"Төлсөн гэж тэмдэглэлээ"}[D.st]); if(D.st!==ST.OK) S.detail=null; S.lastPending=S.reqs.filter(r=>r.status===ST.WAIT).length; render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
@@ -2859,7 +2868,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261030133214";
+const BUILD="20261030141500";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
