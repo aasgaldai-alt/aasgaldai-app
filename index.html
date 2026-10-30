@@ -1839,6 +1839,7 @@ async function needPdf(){
     pm.vfs=vfs; pm.fonts={Arial:{normal:"LiberationSans-Regular.ttf",bold:"LiberationSans-Bold.ttf",italics:"LiberationSans-Regular.ttf",bolditalics:"LiberationSans-Bold.ttf"},Times:{normal:"LiberationSerif-Regular.ttf",bold:"LiberationSerif-Bold.ttf",italics:"LiberationSerif-Regular.ttf",bolditalics:"LiberationSerif-Bold.ttf"}}; pm.__aas=1; }
   return pm; }
 async function needDocx(){ if(!window.docx) await lLoadJS(LCDN+"docx@8.5.0/build/index.umd.js"); return window.docx; }
+const LHOW=["Биеэр","И-мэйл","Шуудан","Бусад"];
 const canLetter=()=>!!S.user&&["Нягтлан","Захирал"].includes(S.user.role);
 const lDots=d=>String(d||"").replace(/-/g,".");
 const logoSrc=()=>{ const i=document.querySelector("img.logo"); return i?i.src:""; };
@@ -2039,6 +2040,11 @@ function renderLetters(m){
       ${cfg.hasStamp?`<div class="seg" style="margin-top:10px"><button data-lst="1" aria-pressed="${!!L.useStamp}">Тамга, гарын үсэгтэй</button><button data-lst="0" aria-pressed="${!L.useStamp}">Тамга, гарын үсэггүй</button></div>`:`<div class="small muted" style="margin-top:8px">Тамга оруулаагүй тул тамгагүй хувилбар гарна.</div>`}
       <div class="actions" style="margin-top:10px"><button class="primary" data-ldl="pdf" ${voided?"disabled":""}>⬇ PDF</button><button class="primary" data-ldl="docx" ${voided?"disabled":""}>⬇ Word</button></div>
       ${voided?"":`<div class="actions" style="margin-top:8px"><button data-ledit>✏️ Засах</button><button class="danger" data-lvoid>${L.voidAsk?"Дахин дарж баталгаажуулна":"Хүчингүй болгох"}</button></div>`}</div>
+     ${voided?"":l.sent?`<div class="card" style="border-left:4px solid var(--ok,#2e7d32)"><div class="urow"><div class="nm"><b>✅ Хүргэсэн · ${esc(lDots(l.sentDate))}${l.sentHow?" · "+esc(l.sentHow):""}</b>${l.sentNote?`<span class="small muted">${esc(l.sentNote)}</span>`:""}</div><button data-lunsent>Хүргээгүй болгох</button></div></div>`
+      :`<div class="card form" style="border-left:4px solid var(--warn,#e0a100)"><div><b>⏳ Хүргээгүй</b> <span class="small muted">— бэлтгэсэн боловч хүлээн авагчид өгсөн гэж тэмдэглээгүй байна.</span></div>
+        <div class="chips" id="lsHow">${LHOW.map((x,i)=>`<button type="button" data-lhow="${esc(x)}" aria-pressed="${i===0}">${esc(x)}</button>`).join("")}</div>
+        <div class="row2"><label class="f">Хүргэсэн огноо<input id="ls_date" type="date" value="${esc(D.today)}"></label><label class="f">Тэмдэглэл (заавал биш)<input id="ls_note" placeholder="Жишээ: бичиг хэрэгт Б.Сараа хүлээж авсан"></label></div>
+        <button class="primary big" data-lsent>✅ Хүргэсэн гэж тэмдэглэх</button></div>`}
      <div class="a4wrap" id="lPrev"></div>`;
     const show=()=>{ lShow($("#lPrev"),l,L.useStamp?L.stampData:""); };
     if(L.useStamp&&L.stampData===undefined) lStamp().then(show).catch(()=>{});
@@ -2049,20 +2055,27 @@ function renderLetters(m){
   const nd=lDraftGet("");
   if(nd) h+=`<div class="card urow"><div class="nm"><b>📝 Хадгалаагүй ноорог</b><span class="small muted">${esc(nd.title||nd.to||"Гарчиггүй")}</span></div><button data-lnew>Үргэлжлүүлэх</button><button class="danger" data-ldraftdel>Устгах</button></div>`;
   if(!cfg.hasStamp&&D.canCfg) h+=`<div class="banner">Тамга, гарын үсгийн зураг оруулаагүй байна. ⚙ Тохиргоо хэсгээс оруулна уу.</div>`;
-  h+=`<h3 class="sec">Бүртгэл · ${D.letters.length}</h3>`;
-  h+=D.letters.length?D.letters.map(l=>`<div class="card urow" data-lopen="${esc(l.no)}" style="cursor:pointer"><div class="nm"><b>№ ${esc(l.no)} · ${esc(l.title)}</b><span class="small muted">${esc(lDots(l.date))} · ${esc(l.to.replace(/\n/g," "))} · ${esc(l.by)}</span></div>${l.status==="Хүчингүй"?`<span class="st st-no">Хүчингүй</span>`:l.stamp?`<span class="st st-paid">Тамгатай</span>`:""}</div>`).join(""):`<div class="card empty">Одоогоор албан бичиг алга</div>`;
+  const act=D.letters.filter(x=>x.status!=="Хүчингүй"), nNo=act.filter(x=>!x.sent).length, nYes=act.length-nNo, sf=L.sf||"";
+  const LS=D.letters.filter(x=>!sf||(x.status!=="Хүчингүй"&&(sf==="yes"?x.sent:!x.sent)));
+  h+=`<h3 class="sec">Бүртгэл · ${D.letters.length}</h3><div class="chips"><button data-lsf="" aria-pressed="${!sf}">Бүгд · ${D.letters.length}</button><button data-lsf="no" aria-pressed="${sf==="no"}">⏳ Хүргээгүй · ${nNo}</button><button data-lsf="yes" aria-pressed="${sf==="yes"}">✅ Хүргэсэн · ${nYes}</button></div>`;
+  h+=LS.length?LS.map(l=>`<div class="card urow" data-lopen="${esc(l.no)}" style="cursor:pointer"><div class="nm"><b>№ ${esc(l.no)} · ${esc(l.title)}</b><span class="small muted">${esc(lDots(l.date))} · ${esc(l.to.replace(/\n/g," "))} · ${esc(l.by)}</span></div>${l.status==="Хүчингүй"?`<span class="st st-no">Хүчингүй</span>`:l.sent?`<span class="st st-paid" title="${esc(l.sentHow)}">✅ Хүргэсэн ${esc(lDots(l.sentDate).slice(5))}</span>`:`<span class="st st-wait">⏳ Хүргээгүй</span>`}</div>`).join(""):`<div class="card empty">${sf?"Энэ төлөвтэй албан бичиг алга":"Одоогоор албан бичиг алга"}</div>`;
   m.innerHTML=h;
 }
 
 document.addEventListener("click",async ev=>{
-  const t=ev.target.closest("[data-lgo],[data-lnew],[data-lopen],[data-lst],[data-ldl],[data-ledit],[data-lvoid],[data-ldraftdel]"); if(!t||!S.L) return;
+  const t=ev.target.closest("[data-lgo],[data-lnew],[data-lopen],[data-lst],[data-ldl],[data-ledit],[data-lvoid],[data-ldraftdel],[data-lsf],[data-lhow],[data-lsent],[data-lunsent]"); if(!t||!S.L) return;
   const L=S.L, D=L.data;
+  if(t.dataset.lsf!=null){ L.sf=t.dataset.lsf; render(); return; }
+  if(t.dataset.lhow){ t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
   if(t.dataset.lgo){ L.view=t.dataset.lgo; L.voidAsk=false; render(); scrollTo(0,0); return; }
   if(t.hasAttribute("data-ldraftdel")){ lDraftDel(""); toast("Ноорог устгагдлаа"); render(); return; }
   if(t.hasAttribute("data-lnew")){ const sv=lDraftGet(""); if(sv){ L.draft=Object.assign(sv,{no:""}); L.view="edit"; render(); scrollTo(0,0); return; } L.draft={to:"",title:"",body:"\t",date:D.today,refDate:"",refNo:"",stamp:D.cfg.hasStamp,signTitle:D.cfg.signTitle,signName:D.cfg.signName}; L.view="edit"; render(); scrollTo(0,0); return; }
   if(t.dataset.lopen){ L.cur=t.dataset.lopen; L.view="view"; L.useStamp=undefined; L.voidAsk=false; render(); scrollTo(0,0); return; }
   const l=D.letters.find(x=>x.no===L.cur);
   if(t.dataset.lst){ L.useStamp=t.dataset.lst==="1"; render(); return; }
+  if((t.hasAttribute("data-lsent")||t.hasAttribute("data-lunsent"))&&l){ const sent=t.hasAttribute("data-lsent"), how=document.querySelector("#lsHow [aria-pressed=true]")?.dataset.lhow||"";
+    const date=$("#ls_date")?.value||D.today; if(sent&&date>D.today){ toast("Ирээдүйн огноо байж болохгүй"); return; } t.disabled=true;
+    try{ L.data=await api("letterSent",{no:l.no,sent,date,how,note:$("#ls_note")?.value||""}); toast(sent?"Хүргэсэн гэж тэмдэглэлээ":"Хүргээгүй болголоо"); render(); }catch(e){ toast(e.message); t.disabled=false; } return; }
   if(t.hasAttribute("data-ledit")&&l){ L.draft=Object.assign({},l,lDraftGet(l.no)||{}); L.view="edit"; render(); scrollTo(0,0); return; }
   if(t.hasAttribute("data-lvoid")&&l){ if(!L.voidAsk){ L.voidAsk=true; render(); return; } t.disabled=true; try{ L.data=await api("letterVoid",{no:l.no}); toast("Хүчингүй болголоо"); }catch(e){ toast(e.message); } L.voidAsk=false; render(); return; }
   if(t.dataset.ldl&&l){ const old=t.textContent; t.disabled=true; t.textContent="Бэлдэж байна…";
@@ -2669,7 +2682,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261027135245";
+const BUILD="20261030110353";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

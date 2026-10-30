@@ -472,6 +472,9 @@ function handle_(b) {
       case 'letterVoid':
         if (!isBoss_(me)) return deny_();
         letterVoid_(me, b.no); return letterData_(me);
+      case 'letterSent':
+        if (!isBoss_(me)) return deny_();
+        letterSent_(me, b); return letterData_(me);
       case 'letterStamp':
         if (!isBoss_(me)) return deny_();
         var stId = PropertiesService.getScriptProperties().getProperty('LETTER_STAMP');
@@ -1533,10 +1536,11 @@ function letterCfgSave_(c, photo) {
   if (photo && photo.indexOf('data:image/png') === 0) p.setProperty('LETTER_STAMP', savePhoto_('Аасгалдай тамга', 'tamga.png', photo));
 }
 function letters_() {
-  return rowsOf_(letterSheet_(), 15).map(function (r) {
+  return rowsOf_(letterSheet_(), 19).map(function (r) {
     return { n: num_(r[0]), yy: String(r[1]).length === 1 ? '0' + r[1] : String(r[1]), no: String(r[2]), date: ymd_(r[3]), to: String(r[4] || ''), title: String(r[5] || ''), body: String(r[6] || ''),
              refDate: String(r[7] || ''), refNo: String(r[8] || ''), stamp: r[9] === true || String(r[9]).toUpperCase() === 'TRUE',
-             signTitle: String(r[10] || ''), signName: String(r[11] || ''), by: String(r[12] || ''), at: fmtDate_(r[13]), status: String(r[14] || '') };
+             signTitle: String(r[10] || ''), signName: String(r[11] || ''), by: String(r[12] || ''), at: fmtDate_(r[13]), status: String(r[14] || ''),
+             sent: r[15] === true || String(r[15]).toUpperCase() === 'TRUE', sentDate: r[16] ? ymd_(r[16]) : '', sentHow: String(r[17] || ''), sentNote: String(r[18] || '') };
   });
 }
 function letterNext_(yy) {
@@ -1570,6 +1574,21 @@ function letterSave_(me, l) {
     sh.appendRow([n, "'" + yy, no, d, to, title, body, String(l.refDate || ''), String(l.refNo || ''), stamp, signTitle, signName, me.name, new Date(), '']);
   } finally { lock.releaseLock(); }
   return letters_().filter(function (x) { return x.no === no; })[0];
+}
+// Хүргэлтийн төлөв: P Хүргэсэн | Q Хүргэсэн огноо | R Хүргэсэн арга | S Тэмдэглэл (хэн, юу)
+function letterSent_(me, b) {
+  var sh = letterSheet_(), v = sh.getDataRange().getValues();
+  if (!String(sh.getRange(1, 16).getValue())) sh.getRange(1, 16, 1, 4).setValues([['Хүргэсэн', 'Хүргэсэн огноо', 'Хүргэсэн арга', 'Хүргэлтийн тэмдэглэл']]);
+  for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(b.no)) {
+    if (String(v[i][14]) === 'Хүчингүй') throw new Error('Хүчингүй болсон албан бичиг');
+    if (!b.sent) { sh.getRange(i + 1, 16, 1, 4).setValues([[false, '', '', '']]); return; }
+    var ds = String(b.date || ymd_(new Date()));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) throw new Error('Огноо буруу');
+    var p = ds.split('-'), note = String(b.note || '').trim().slice(0, 300);
+    sh.getRange(i + 1, 16, 1, 4).setValues([[true, new Date(+p[0], +p[1] - 1, +p[2]), String(b.how || '').trim().slice(0, 40), (note ? note + ' · ' : '') + me.name]]);
+    return;
+  }
+  throw new Error('Албан бичиг олдсонгүй');
 }
 function letterVoid_(me, no) {
   var sh = letterSheet_(), v = sh.getDataRange().getValues();
