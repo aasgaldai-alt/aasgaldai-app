@@ -927,7 +927,10 @@ function create_(me, f, photo) {
       if (!f.what) f.what = ln.party + ' ' + (rtype === RT.PRIN ? 'зээлийн үндсэн төлбөр' : 'зээлийн хүү');
     }
   }
-  if (!f.proj || !f.cat || !f.what || !(amount > 0) || !f.payee || !f.bank || !f.acct || VATS.indexOf(f.vat) < 0 || String(f.phone || '').replace(/\D/g, '').length < 8) throw new Error('Мэдээлэл дутуу байна');
+  // «Кассанд»: захирал компанийн касс руу (бэлнээр) гаргах зардлаа бүртгэнэ — данс, утас шаардлагагүй
+  var cash = !!f.cash;
+  if (cash) { if (!isDir_(me)) throw new Error('Кассанд гаргах зардлыг зөвхөн захирал бүртгэнэ'); f.bank = 'Касс'; f.payee = String(f.payee || '').trim() || 'Касс'; f.acct = ''; f.phone = ''; }
+  if (!f.proj || !f.cat || !f.what || !(amount > 0) || !f.payee || VATS.indexOf(f.vat) < 0 || (!cash && (!f.bank || !f.acct || String(f.phone || '').replace(/\D/g, '').length < 8))) throw new Error('Мэдээлэл дутуу байна');
   if (f.proj !== GEN && !canProj_(me, f.proj)) throw new Error('Танд ' + f.proj + ' төсөлд хүсэлт илгээх эрх алга. Нягтланд хандана уу.');
   if (me.canReq === false) throw new Error('Танд төлбөрийн хүсэлт илгээх эрх олгогдоогүй байна.');
   var loc = locStr_(f.loc);

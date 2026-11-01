@@ -673,7 +673,7 @@ function locTag(r){ if(String(r.id).indexOf("GAZ-")===0) return ""; const i=locI
 function card(r){
   return `<button class="card req" data-open="${esc(r.id)}" style="text-align:left;display:flex;width:100%">
     <div class="top" style="width:100%"><div class="what">${esc(r.what)}${r.qty?` <span class="muted" style="font-weight:400">· ${esc(r.qty)}</span>`:""}</div><div class="amt">${fmt(r.amount)} ₮</div></div>
-    <div class="tags" style="width:100%"><span class="tag">${esc(r.proj)}</span><span class="tag">${esc(r.cat)}</span>${r.vat?`<span class="tag">${RTL[rtOf(r)]}</span>`:""}${isBoss()?locTag(r):""}${stTag(r.status)}</div>
+    <div class="tags" style="width:100%"><span class="tag">${esc(r.proj)}</span><span class="tag">${esc(r.cat)}</span>${r.bank==="Касс"?`<span class="tag">💵 Касс</span>`:""}${r.vat?`<span class="tag">${RTL[rtOf(r)]}</span>`:""}${isBoss()?locTag(r):""}${stTag(r.status)}</div>
     <div class="meta">${esc(r.payee)} · ${esc(r.date)}${isBoss()||isPM()?` · ${esc(r.by)}`:""}</div></button>`;
 }
 
@@ -879,7 +879,7 @@ function renderDetail(m,r){
   if(isBoss()&&String(r.id).indexOf("GAZ-")!==0){ const i=locInfo(r);
     h+=i.l?`<div class="card urow"><div class="nm"><b>📍 Илгээсэн байршил</b><span class="small ${i.far?"neg":"muted"}">${i.km!=null?(i.far?"⚠ ":"")+`Төслийн талбайгаас ${i.km<1?"1 км дотор":Math.round(i.km)+" км"}`:"Төслийн талбайн байршил тохируулаагүй"}${i.l.acc?` · нарийвчлал ±${i.l.acc} м`:""}</span></div><a href="${MAPS}${i.l.lat},${i.l.lng}" target="_blank" rel="noopener" style="flex:none"><button type="button">Газрын зураг</button></a></div>`
       :`<div class="banner">📍 Энэ хүсэлтийг байршилгүй илгээсэн байна.</div>`; }
-  const rows=[["Хүлээн авагч",r.payee],["Утас",r.phone||"—"],["Банк",r.bank],["Дансны дугаар",r.acct],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]];
+  const rows=r.bank==="Касс"?[["Төлбөрийн хэлбэр","💵 Бэлнээр (касс)"],["Хэнд / зориулалт",r.payee],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]]:[["Хүлээн авагч",r.payee],["Утас",r.phone||"—"],["Банк",r.bank],["Дансны дугаар",r.acct],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]];
   h+=`<div class="card">${isBoss()&&r.status!==ST.NO?`<div class="small muted" style="margin-bottom:4px">Банкны апп руу хуулах</div>`:""}${rows.map(([k,v])=>`<div class="copyrow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${isBoss()?`<button data-copy="${esc(v)}" data-label="${k}">Хуулах</button>`:""}</div>`).join("")}</div>`;
   if(r.photo) h+=`<div class="card photo" id="photoBox"><button id="loadPhoto" class="big">Баримтын зураг харах</button></div>`;
   const canNo=isBoss();
@@ -913,10 +913,13 @@ function renderNew(m){
    <div ${d.rtype?"hidden":""}><div class="small muted" style="font-weight:500;margin-bottom:6px">Баримтын төрөл</div><div class="chips" data-chip="rt">${Object.entries(RTL).map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${d.rt===k}">${l}</button>`).join("")}</div>
    <div class="vatnote"><b>Хүндэтгэлтэй сануулга:</b> Худалдан авалтаа аль болох <b>НӨАТ-тай</b> хийгээрэй. НӨАТ-тай баримт компанийн татварыг бууруулж, бүх хамт олонд ашигтай. Худалдагчаас НӨАТ-тай баримт гаргуулахыг заавал асуугаарай. Баярлалаа!</div>
    <div class="vatnote warn" id="vatNo" ${d.rt&&d.rt!=="vat"?"":"hidden"}>${rtWarn(d.rt)}</div></div>
-   <label class="f">Хүлээн авагч (данс эзэмшигч)<input id="f_payee" value="${esc(d.payee)}" placeholder="Байгууллага эсвэл хүний нэр"></label>
+   ${isDir()&&!d.rtype?`<div><div class="small muted" style="font-weight:500;margin-bottom:6px">Төлбөрийн хэлбэр</div><div class="chips" data-chip="pay"><button type="button" data-v="bank" aria-pressed="${d.pay!=="cash"}">🏦 Дансаар</button><button type="button" data-v="cash" aria-pressed="${d.pay==="cash"}">💵 Кассанд</button></div>
+     ${d.pay==="cash"?`<div class="small muted" style="margin-top:4px">Компанийн касс руу бэлнээр гаргах зардал. Данс, утас шаардлагагүй.</div>`:""}</div>`:""}
+   ${isDir()&&d.pay==="cash"&&!d.rtype?`<label class="f">Хэнд / зориулалт (заавал биш)<input id="f_payee" value="${esc(d.payee)}" placeholder="Касс"></label>`
+   :`<label class="f">Хүлээн авагч (данс эзэмшигч)<input id="f_payee" value="${esc(d.payee)}" placeholder="Байгууллага эсвэл хүний нэр"></label>
    <label class="f">Худалдагчийн утас<input id="f_phone" type="tel" value="${esc(d.phone)}" inputmode="tel" placeholder="99112233" autocomplete="off"></label>
    <div class="row2"><label class="f">Банк<select id="f_bank"><option value="">Сонгох</option>${M.banks.map(b=>`<option${d.bank===b?" selected":""}>${esc(b)}</option>`).join("")}</select></label>
-   <label class="f">Дансны дугаар<input id="f_acct" value="${esc(d.acct)}" inputmode="numeric" placeholder="5000…"></label></div>
+   <label class="f">Дансны дугаар<input id="f_acct" value="${esc(d.acct)}" inputmode="numeric" placeholder="5000…"></label></div>`}
    <label class="f">Баримт, нэхэмжлэхийн зураг<input id="f_photo" type="file" accept="${IMG_ACCEPT}" capture="environment"></label>
    <div id="photoPrev" class="photo">${S.photo?`<img src="${S.photo}" alt="Баримтын зураг">`:""}</div>
    <label class="f">Тэмдэглэл<textarea id="f_note" placeholder="Заавал биш">${esc(d.note)}</textarea></label>
@@ -2757,6 +2760,7 @@ document.addEventListener("click",async e=>{
   if(D.deluser){ if(S.delAsk!==D.deluser){ S.delAsk=D.deluser; render(); return; }
     t.disabled=true; try{ const r=await api("deleteUser",{target:D.deluser}); S.users=r.users; S.delAsk=null; toast("Хэрэглэгч хасагдлаа"); render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(t.closest("[data-uchip]")){ S.uedit.role=D.v; if(S.uedit.tempPin){ S.uedit.tempPin=genPin(D.v); return render(); } t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
+  if(t.closest("[data-chip=pay]")){ S.draft.pay=D.v; render(); return; }
   if(t.closest("[data-chip]")){ const k=t.closest("[data-chip]").dataset.chip; S.draft[k]=D.v; if(k==="rt"&&$("#vatNo")){ $("#vatNo").hidden=D.v==="vat"; $("#vatNo").textContent=rtWarn(D.v); } if(k==="proj") store.set("aas_lastproj",D.v);
     t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); $("#descPrev").textContent=mkDesc(S.draft)||"—"; return; }
   if(D.reqdelno!=null){ S.reqDel=null; render(); return; }
@@ -2807,7 +2811,8 @@ document.addEventListener("submit",async e=>{
     const d=S.draft, amount=num(d.amount); const miss=[];
     if(!d.proj) miss.push("төсөл"); if(!d.rtype&&!d.cat) miss.push("ангилал"); if(!d.rtype&&!d.what.trim()) miss.push("юу авах"); if(!(amount>0)) miss.push("дүн"); if(!d.rtype&&!d.rt) miss.push("баримтын төрөл");
     if(d.rtype==="Урьдчилгаа цалин"&&!d.emp) miss.push("ажилтан"); if((d.rtype==="Зээлийн үндсэн төлбөр"||d.rtype==="Зээлийн хүү, шимтгэл")&&!d.loan) miss.push("аль зээл");
-    if(!d.payee.trim()) miss.push("хүлээн авагч"); if(!d.bank) miss.push("банк"); if(d.acct.length<6) miss.push("дансны дугаар"); if(String(d.phone).replace(/\D/g,"").length<8) miss.push("худалдагчийн утас");
+    const cash=isDir()&&d.pay==="cash"&&!d.rtype;
+    if(!cash){ if(!d.payee.trim()) miss.push("хүлээн авагч"); if(!d.bank) miss.push("банк"); if(d.acct.length<6) miss.push("дансны дугаар"); if(String(d.phone).replace(/\D/g,"").length<8) miss.push("худалдагчийн утас"); }
     if(miss.length) return showErr("#formErr","Бөглөөгүй: "+miss.join(", ")+".");
     const b=$("#sendBtn"); b.disabled=true; b.textContent="📍 Байршил тогтоож байна…";
     let loc=null;
@@ -2816,7 +2821,7 @@ document.addEventListener("submit",async e=>{
       if(MODE==="demo") loc={lat:43.6312,lng:105.5241,acc:30};
       else if(need){ b.disabled=false; b.textContent="Хүсэлт илгээх"; return result(false,"Байршил тогтоож чадсангүй",(le&&le.code===1?"Байршил ашиглахыг зөвшөөрөөгүй байна. ":"Байршил олдсонгүй. Задгай газар гарч дахин оролдоно уу. ")+LOC_HELP,true); } }
     b.textContent="Илгээж байна…";
-    try{ const r=await api("create",{req:{...d,loc,what:d.what.trim(),payee:d.payee.trim(),amount,vat:d.rt==="vat"?"НӨАТ-тай":"НӨАТ-гүй",ebarimt:d.rt!=="none"},photo:S.photo||""}); S.reqs.unshift(r.req); S.draft=null; S.photo=null; S.dash=null;
+    try{ const r=await api("create",{req:{...d,loc,what:d.what.trim(),payee:d.payee.trim()||(cash?"Касс":""),cash,...(cash?{bank:"Касс",acct:"",phone:""}:{}),amount,vat:d.rt==="vat"?"НӨАТ-тай":"НӨАТ-гүй",ebarimt:d.rt!=="none"},photo:S.photo||""}); S.reqs.unshift(r.req); S.draft=null; S.photo=null; S.dash=null;
       S.tab=isBoss()?"wait":"mine"; render(); scrollTo(0,0);
       result(true,"Амжилттай илгээгдлээ",`${r.req.what} · ${fmt(r.req.amount)} ₮ хүсэлт нягтлан руу очлоо. Төлөвийг “Миний хүсэлт” хэсгээс харна.`); }
     catch(err){ b.disabled=false; b.textContent="Хүсэлт илгээх";
@@ -2868,7 +2873,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261030141500";
+const BUILD="20261101091917";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
