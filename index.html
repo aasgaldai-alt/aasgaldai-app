@@ -276,7 +276,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,reqDel:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,reqDel:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null,payPhoto:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -365,8 +365,10 @@ function demo(b){
       const r={...f,loc:f.loc?`${(+f.loc.lat).toFixed(6)},${(+f.loc.lng).toFixed(6)},${Math.round(f.loc.acc||0)}`:"",ebarimt:(f.vat==="НӨАТ-тай"||f.ebarimt)?"Тийм":"Үгүй",id,date:nowS(),by:me.name,status:ST.WAIT,decided:"",paid:"",photo:b.photo?"demo":"",note:f.note||"",desc:mkDesc(f)};
       if(b.photo) store.set("aas_dph_"+id,b.photo); D.reqs.unshift(r); save(); return {req:r}; }
     case "status": { if(!boss) return deny; const r=D.reqs.find(x=>x.id===b.id); if(!r) return {error:"bad",message:"Олдсонгүй"};
-      r.status=b.status; r.decided=me.name; if(b.status===ST.PAID) r.paid=nowS(); if(b.note) r.note=b.note; save(); return {req:r}; }
+      if(b.status===ST.PAID&&!b.photo&&r.bank!=="Касс") return {error:"bad",message:"Гүйлгээний баримтын зургийг оруулна уу"};
+      r.status=b.status; r.decided=me.name; if(b.status===ST.PAID){ r.paid=nowS(); if(b.photo){ store.set("aas_dpp_"+r.id,b.photo); r.payphoto="demo"; } } if(b.note) r.note=b.note; save(); return {req:r}; }
     case "photo": return {data:store.get("aas_dph_"+b.id)||""};
+    case "payphoto": return {data:store.get("aas_dpp_"+b.id)||""};
     case "dashboard": { const pmV=me.role==="Төслийн удирдагч"&&!!me.fin; if(!boss&&!pmV) return deny; return {projects:D.projects.filter(p=>boss||(p.code!==GEN&&!!me.projects&&me.projects.includes(p.code))).map(p=>{ const s={ok:{n:0,sum:0},paid:{n:0,sum:0},wait:{n:0,sum:0},no:{n:0,sum:0},cats:{},vatSum:0,vatN:0,eboSum:0,eboN:0};
       for(const r of D.reqs){ if(r.proj!==p.code) continue; const k={[ST.OK]:"ok",[ST.PAID]:"paid",[ST.WAIT]:"wait",[ST.NO]:"no"}[r.status]; if(!k) continue; s[k].n++; s[k].sum+=+r.amount; if(k==="ok"||k==="paid"){ s.cats[r.cat]=(s.cats[r.cat]||0)+ +r.amount; const t=rtOf(r); if(t==="vat"){ s.vatSum+=+r.amount; s.vatN++; } else if(t==="ebo"){ s.eboSum+=+r.amount; s.eboN++; } } }
       const inc=(D.incomes||[]).filter(x=>x.proj===p.code).map(({photo,...x})=>({...x,hasPhoto:!!photo}));
@@ -882,14 +884,16 @@ function renderDetail(m,r){
   const rows=r.bank==="Касс"?[["Төлбөрийн хэлбэр","💵 Бэлнээр (касс)"],["Хэнд / зориулалт",r.payee],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]]:[["Хүлээн авагч",r.payee],["Утас",r.phone||"—"],["Банк",r.bank],["Дансны дугаар",r.acct],["Дүн",String(Math.round(+r.amount||0))],["Гүйлгээний утга",r.desc||mkDesc(r)]];
   h+=`<div class="card">${isBoss()&&r.status!==ST.NO?`<div class="small muted" style="margin-bottom:4px">Банкны апп руу хуулах</div>`:""}${rows.map(([k,v])=>`<div class="copyrow"><div class="k">${k}</div><div class="v">${esc(v)}</div>${isBoss()?`<button data-copy="${esc(v)}" data-label="${k}">Хуулах</button>`:""}</div>`).join("")}</div>`;
   if(r.photo) h+=`<div class="card photo" id="photoBox"><button id="loadPhoto" class="big">Баримтын зураг харах</button></div>`;
+  if(r.payphoto) h+=`<div class="card photo" id="payBox"><button id="loadPay" class="big">🧾 Гүйлгээний баримт харах</button></div>`;
+  const payIn=()=>`<label class="f">🧾 Гүйлгээний баримтын зураг${r.bank==="Касс"?" (заавал биш)":" (заавал)"}<input id="pay_photo" type="file" accept="${IMG_ACCEPT}"></label><div id="payPrev" class="photo">${S.payPhoto?`<img src="${S.payPhoto}" alt="Гүйлгээний баримт">`:""}</div><div class="small muted">Банкны апп-аас гүйлгээний баримтыг screenshot хийж эсвэл зургийг нь оруулна.</div>`;
   const canNo=isBoss();
   if(r.status===ST.WAIT&&!isBoss()&&isPM()) h+=`<div class="banner">Хүсэлтийг ${fmt(LIMIT())} ₮ хүртэл бол нягтлан, түүнээс дээш бол захирал батална.</div>`;
   if(r.status===ST.WAIT&&(canNo||canApprove(r))){ const big=(+r.amount||0)>LIMIT();
     h+=`<div class="card form">${!canApprove(r)?`<div class="banner">${big?`${fmt(LIMIT())} ₮-өөс дээш тул <b>захирал</b> батална.`:r.by===S.user.name?"Өөрийн хүсэлтийг өөрөө батлахгүй, <b>захирал</b> батална.":"Батлах эрхгүй."}</div>`:""}<label class="f">Тайлбар (буцаах бол заавал)<textarea id="note" placeholder="Жишээ: дансны дугаар буруу"></textarea></label>
       <div class="actions">${canNo?`<button class="danger" data-st="${ST.NO}">Буцаах</button>`:""}${canApprove(r)?`<button data-st="${ST.OK}">Зөвшөөрөх</button>`:""}</div>
-      ${canApprove(r)?`<button class="primary big" data-st="${ST.PAID}">✅ Батлаад төлсөн гэж тэмдэглэх</button><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу. Дараа төлөх бол «Зөвшөөрөх» дарна.</div>`:""}</div>`; }
+      ${canApprove(r)?`${payIn()}<button class="primary big" data-st="${ST.PAID}">✅ Батлаад төлсөн гэж тэмдэглэх</button><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу. Дараа төлөх бол «Зөвшөөрөх» дарна.</div>`:""}</div>`; }
   if(isBoss()){
-    if(r.status===ST.OK) h+=`<div class="card form"><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу.</div><button class="primary big" data-st="${ST.PAID}">Төлсөн гэж тэмдэглэх</button></div>`;
+    if(r.status===ST.OK) h+=`<div class="card form"><div class="small muted">Банкны апп-аар шилжүүлсний дараа дарна уу.</div>${payIn()}<button class="primary big" data-st="${ST.PAID}">Төлсөн гэж тэмдэглэх</button></div>`;
   }
   if(isDir()) h+=`<div class="card form" style="margin-top:14px">${S.reqDel===r.id?`<div class="banner"><b>Энэ хүсэлтийг бүрмөсөн устгах уу?</b> Тайлан, төслийн зардал, ${r.rtype?"холбогдох зээл, урьдчилгааны бүртгэл, ":""}түүхээс хамт арилж, сэргээх боломжгүй.</div><div class="actions"><button data-reqdelno>Болих</button><button class="danger" data-reqdel="${esc(r.id)}">🗑 Тийм, устгах</button></div>`
     :`<button class="danger" data-reqdel="${esc(r.id)}">🗑 Хүсэлтийг устгах</button><div class="small muted">Зөвхөн захиралд харагдана. Туршилтын болон алдаатай хүсэлтийг устгахад.</div>`}</div>`;
@@ -2720,8 +2724,8 @@ document.addEventListener("click",async e=>{
   if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); if(S.tab==="dash") S.loans=null; return load(); }
   if(D.tab){ S.tab=D.tab; S.detail=S.edit=S.uedit=S.incEdit=null; S.eqEdit=S.ff=S.feq=null; S.habEdit=null; S.pdet=null; S.uedit=null; S.delAsk=null; render(); scrollTo(0,0); return; }
   if(D.go){ S.tab=D.go; render(); scrollTo(0,0); return; }
-  if(D.open){ S.detail=D.open; render(); scrollTo(0,0); return; }
-  if(t.id==="back"){ S.detail=null; render(); return; }
+  if(D.open){ S.detail=D.open; S.payPhoto=null; render(); scrollTo(0,0); return; }
+  if(t.id==="back"){ S.detail=null; S.payPhoto=null; render(); return; }
   if(D.copy!=null) return copy(D.copy,D.label);
   if(D.dp){ S.dp=D.dp; render(); return; }
   if(D.xp){ const p=S.dash?.find(x=>x.code===S.dp); if(!p) return; return runExport(t,()=>D.xp==="xlsx"?exportProjectXlsx(p):exportProjectPdf(p)); }
@@ -2769,7 +2773,10 @@ document.addEventListener("click",async e=>{
     catch(err){ t.disabled=false; result(false,"Устгах боломжгүй",err.message); } return; }
   if(D.st){ const note=$("#note")?.value.trim()||"";
     if(D.st===ST.NO&&!note){ toast("Буцаах шалтгаанаа бичнэ үү"); $("#note").focus(); return; }
-    t.disabled=true; try{ const r=await api("status",{id:S.detail,status:D.st,note}); const i=S.reqs.findIndex(x=>x.id===r.req.id); S.reqs[i]=r.req; S.dash=null; toast({[ST.OK]:"Зөвшөөрлөө",[ST.NO]:"Буцаалаа",[ST.PAID]:"Төлсөн гэж тэмдэглэлээ"}[D.st]); if(D.st!==ST.OK) S.detail=null; S.lastPending=S.reqs.filter(r=>r.status===ST.WAIT).length; render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
+    const rq=S.reqs.find(x=>x.id===S.detail);
+    if(D.st===ST.PAID&&!S.payPhoto&&rq&&rq.bank!=="Касс"){ toast("Гүйлгээний баримтын зургийг оруулна уу"); $("#pay_photo")?.scrollIntoView({block:"center"}); return; }
+    t.disabled=true; try{ const r=await api("status",{id:S.detail,status:D.st,note,photo:D.st===ST.PAID?(S.payPhoto||""):""}); if(D.st===ST.PAID) S.payPhoto=null; const i=S.reqs.findIndex(x=>x.id===r.req.id); S.reqs[i]=r.req; S.dash=null; toast({[ST.OK]:"Зөвшөөрлөө",[ST.NO]:"Буцаалаа",[ST.PAID]:"Төлсөн гэж тэмдэглэлээ"}[D.st]); if(D.st!==ST.OK) S.detail=null; S.lastPending=S.reqs.filter(r=>r.status===ST.WAIT).length; render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
+  if(t.id==="loadPay"){ t.disabled=true; t.textContent="Ачаалж байна…"; try{ const r=await api("payphoto",{id:S.detail}); $("#payBox").innerHTML=r.data?`<img src="${r.data}" alt="Гүйлгээний баримт">`:`<div class="muted small">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(t.id==="loadPhoto"){ t.disabled=true; t.textContent="Ачаалж байна…"; try{ const r=await api("photo",{id:S.detail}); $("#photoBox").innerHTML=r.data?`<img src="${r.data}" alt="Баримтын зураг">`:`<div class="muted small">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
   if(t.id==="lg_btn"){ const n=$("#lg_name").value.trim(), p=$("#lg_pin").value.trim();
     if(!n||!p) return showErr("#lg_err","Утасны дугаар, PIN кодоо оруулна уу.");
@@ -2792,6 +2799,7 @@ document.addEventListener("input",e=>{
   S.draft[k]=el.value; if($("#descPrev")) $("#descPrev").textContent=mkDesc(S.draft)||"—";
 });
 document.addEventListener("change",async e=>{
+  if(e.target.id==="pay_photo"&&e.target.files[0]){ try{ S.payPhoto=await compress(e.target.files[0],1600); $("#payPrev").innerHTML=`<img src="${S.payPhoto}" alt="Гүйлгээний баримт">`; }catch(err){ toast(err.message); } }
   if(e.target.id==="f_photo"&&e.target.files[0]){ try{ S.photo=await compress(e.target.files[0]); $("#photoPrev").innerHTML=`<img src="${S.photo}" alt="Баримтын зураг">`; }catch(err){ toast(err.message); } }
   if(e.target.id==="p_photo"&&e.target.files.length){ const el=e.target, files=[...el.files], pv=$("#p_prev"), L=S.editPhotos=S.editPhotos||[]; el.disabled=true;
     try{ for(const f of files){ if(L.length>=CT_MAX){ toast(`Хамгийн ихдээ ${CT_MAX} хуудас`); break; }
@@ -2873,7 +2881,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261101091917";
+const BUILD="20261102164305";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

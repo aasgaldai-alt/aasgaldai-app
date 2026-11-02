@@ -282,7 +282,7 @@ function pmProj_(u, code) { return isPM_(u) && !!u.fin && code !== GEN && !!u.pr
 function isHR_(u) { return u.role === 'Хүний нөөц'; }
 function isHab_(u) { return u.role === 'ХАБ инженер'; }
 function isBoss_(u) { return u.role === 'Нягтлан' || isDir_(u); }
-var COLS = ['id','date','by','proj','cat','what','qty','payee','bank','acct','amount','photo','status','decided','paid','desc','note','vat','ebarimt','phone','loc','rtype','link'];
+var COLS = ['id','date','by','proj','cat','what','qty','payee','bank','acct','amount','photo','status','decided','paid','desc','note','vat','ebarimt','phone','loc','rtype','link','payphoto'];
 var PCOLS = ['code','name','active','contract','c1','c2','c3','c4','c5','pct','photo']; // Төсөл A:K
 var ICOLS = ['id','date','proj','desc','amount','vat','photo','by','note']; // Санхүүжилт A:I
 var PHOTO_FOLDER = 'Аасгалдай баримт';
@@ -396,11 +396,15 @@ function handle_(b) {
         return deleteReq_(b.id);
       case 'status':
         if (!boss) return deny_();
-        return { req: setStatus_(me, b.id, b.status, b.note) };
+        return { req: setStatus_(me, b.id, b.status, b.note, b.photo) };
       case 'photo':
         var r = rows_().filter(function (x) { return x.id === b.id; })[0];
         if (!r || !r.photo || (!boss && r.by !== me.name && !pmSees_(me, r))) return { data: '' };
         return { data: fileData_(r.photo) };
+      case 'payphoto': // нягтлангийн оруулсан гүйлгээний баримт (төлсний дараа)
+        var rp = rows_().filter(function (x) { return x.id === b.id; })[0];
+        if (!rp || !rp.payphoto || (!boss && rp.by !== me.name && !pmSees_(me, rp))) return { data: '' };
+        return { data: fileData_(rp.payphoto) };
       case 'dashboard':
         if (boss) return { projects: dashboard_() };
         if (!isPM_(me)) return deny_();
@@ -951,7 +955,7 @@ function create_(me, f, photo) {
   notify_(me, row[0], f, amount);
   var o = rowObj_(row); o.acct = acct; o.phone = String(f.phone).replace(/[^\d+]/g, ''); return o;
 }
-function setStatus_(me, id, status, note) {
+function setStatus_(me, id, status, note, photo) {
   if ([ST.OK, ST.NO, ST.PAID].indexOf(status) < 0) throw new Error('Буруу төлөв');
   var sh = sh_('Хүсэлт'), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) {
@@ -963,6 +967,14 @@ function setStatus_(me, id, status, note) {
       if (status === ST.PAID && !isBoss_(me)) throw new Error('Төлбөрийг зөвхөн нягтлан, захирал тэмдэглэнэ');
       if (status === ST.PAID && cur !== ST.OK && !direct) throw new Error('Эхлээд зөвшөөрөх шаардлагатай');
       if ((status === ST.OK || status === ST.NO) && cur !== ST.WAIT) throw new Error('Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн');
+      var hasPay = !!photo && String(photo).indexOf('data:image') === 0;
+      // Банкаар шилжүүлсэн бол гүйлгээний баримтын зураг заавал; кассаар (бэлнээр) бол заавал биш
+      if (status === ST.PAID && !hasPay && String(v[i][8]) !== 'Касс') throw new Error('Гүйлгээний баримтын зургийг оруулна уу');
+      if (sh.getMaxColumns() < COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), COLS.length - sh.getMaxColumns());
+      if (status === ST.PAID && hasPay) {
+        if (!String(sh.getRange(1, 24).getValue())) sh.getRange(1, 24).setValue('Гүйлгээний баримт');
+        sh.getRange(i + 1, 24).setValue(savePhoto_(PHOTO_FOLDER, id + '_paid.jpg', photo));
+      }
       sh.getRange(i + 1, 13).setValue(status);
       sh.getRange(i + 1, 14).setValue(me.name);
       if (status === ST.PAID) sh.getRange(i + 1, 15).setValue(new Date());
