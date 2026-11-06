@@ -276,7 +276,7 @@ const isGAS=!!(window.google&&google.script&&google.script.run);
 const MODE=isGAS?"gas":API_URL?"http":"demo";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
-const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,reqDel:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null,payPhoto:null});
+const fresh=()=>({user:store.get("aas_user"),meta:null,reqs:[],dash:null,users:null,tab:null,draft:null,detail:null,lastPending:null,dp:null,edit:null,editPhotos:null,uedit:null,delAsk:null,photo:null,incEdit:null,incPhoto:null,incDel:null,pinChange:false,projDel:null,projForce:null,projForceMsg:null,reqDel:null,eqForce:null,eqForceMsg:null,fuel:null,fp:null,feq:null,eqEdit:null,eqPhoto:null,ff:null,fPhoto:null,fDel:null,eqDel:null,fview:null,ad:null,rm:null,hab:null,hview:null,habEdit:null,habRep:null,habPhoto:null,habDel:null,habBadge:null,habPopped:false,hfilter:null,ppl:null,pview:null,pd:null,pproj:null,pdet:null,pm:null,pm2:null,mym:null,my:null,tc:null,tDel:null,wed:null,cfgEd:false,lvd:null,hrBadge:null,meals:null,mf:null,mlPhoto:null,mDel:null,mm:null,payPhoto:null,as:null,aed:null,aopen:null,aview:null,acat:null,aq:"",aPhoto:null,aDoc:null,aDel:null});
 let S=fresh();
 const IDLE=5*60e3; const actGet=()=>{ try{ return +localStorage.getItem("aas_act")||0; }catch(e){ return 0; } }; let lastAct=actGet()||Date.now(), actSaved=0;
 if(S.user&&MODE!=="demo"&&Date.now()-lastAct>IDLE){ store.del("aas_user"); S.user=null; S.idleOut=true; }
@@ -352,6 +352,7 @@ function demo(b){
   { const r3=demoCook(D,b,me); if(r3!==null&&b.action!=="lastMeal"){ if(!r3.error) save(); return r3; } }
   { const r2=demoHR(D,b,me); if(r2){ if(!r2.error) save(); return r2; } }
   { const hr=demoHab(D,b,me); if(hr){ if(!hr.error) save(); return hr; } }
+  { const ar=demoAssets(D,b,me,boss,dir); if(ar){ if(!ar.error&&b.action!=="assetFile") save(); return ar; } }
   if(!boss&&["fuel","saveEquip","deleteEquip","equipPhoto","addFuel","deleteFuel","fuelPhoto","mark"].includes(b.action)) return {error:"bad",message:"Эрх хүрэхгүй"};
   { const fr=demoFuel(D,b,me,boss,dir); if(fr){ if(!fr.error) save(); return fr; } }
   if(b.action==="boot"){ const L=demo({...b,action:"list"}), M=demo({...b,action:"meta"}); const out={meal:demoCook(D,{...b,action:"lastMeal"},me),hr:demoHR(D,{...b,action:"hrBadge"},me),myProjects:me.projects||null,fin:me.role==="Төслийн удирдагч"&&!!me.fin,reqs:L.reqs,meta:M,hab:demoHab(D,{...b,action:"habBadge"},me)}; if(boss) out.projects=demo({...b,action:"dashboard"}).projects; return out; }
@@ -606,16 +607,16 @@ function setTabs(){
   const pend=S.reqs.filter(r=>r.status===ST.WAIT).length, topay=S.reqs.filter(r=>r.status===ST.OK).length;
   const hb=(S.habBadge?.unread||0)+(habMgr()?(S.habBadge?.newReports||0):0), HT=["hab","⛑","ХАБЭА",hb];
   const NEW=S.canReq===false?[]:[["new","＋","Шинэ хүсэлт",0]], MINE=["mine","☰","Миний хүсэлт",0], pmPend=S.reqs.filter(r=>r.status===ST.WAIT&&r.by!==S.user.name).length;
-  const GR=["sched","📊","График",0], hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN];
-  const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",S.rentNew||0],PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
-          :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,ME]
-          :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,ME]
-          :isPM()?[PT,["all","☰","Төслийн хүсэлт",0],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,ME]
-          :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,ME]
-          :isHab()?[HT,GR,...NEW,MINE,ME]
-          :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,ME]
-          :isEng()?[GR,...NEW,MINE,HT,ME]
-                  :[...NEW,MINE,GR,HT,ME];
+  const GR=["sched","📊","График",0], hrb=S.hrBadge||{}, myN=(hrb.newTasks||0)+(hrb.dueTasks||0), PT=["people","👥","Хүмүүс",hrb.leaves||0], ME=["me","👤","Би",myN], AS=["assets","🏷","Хөрөнгө",0];
+  const T=isBoss()?[["dash","▦","Төсөл",0],GR,["wait","⏳","Хүсэлт",pend+topay],["fuel",GRADER,"Техник",S.rentNew||0],AS,PT,HT,...(MODE!=="demo"&&canLetter()?[["letter","📄","Албан бичиг",0]]:[]),["set","⚙","Тохиргоо",0]]
+          :isAdmin()?[["set","⚙","Хэрэглэгчид",0],GR,HT,AS,ME]
+          :isCook()?[["kitchen","🍲","Гал тогоо",0],...NEW,MINE,GR,HT,AS,ME]
+          :isPM()?[PT,["all","☰","Төслийн хүсэлт",0],...(S.pmFin?[["dash","▦","Төсөл",0]]:[]),GR,["fuel",GRADER,"Техник",0],...NEW,MINE,HT,AS,ME]
+          :(isHR()||isMaster())?[PT,GR,...NEW,MINE,HT,AS,ME]
+          :isHab()?[HT,GR,...NEW,MINE,AS,ME]
+          :(isMech()||isStore()||isOper())?[["fuel",GRADER,"Техник",0],...NEW,MINE,GR,HT,AS,ME]
+          :isEng()?[GR,...NEW,MINE,HT,AS,ME]
+                  :[...NEW,MINE,GR,HT,AS,ME];
   const cur=isBoss()&&["pay","all"].includes(S.tab)?"wait":S.tab;
   if(S.tab==="new"&&isBoss()){} else if(!cur||!T.some(t=>t[0]===cur)) S.tab=T[0][0];
   $("#tabs").classList.toggle("many",T.length>6);
@@ -637,6 +638,7 @@ function render(){
   if(S.tab==="me") return renderMy(m);
   if(S.tab==="people") return renderPeople(m);
   if(S.tab==="kitchen") return renderKitchen(m);
+  if(S.tab==="assets") return renderAssets(m);
   if(S.tab==="sched") return renderSched(m);
   if(S.detail) return renderDetail(m,S.reqs.find(r=>r.id===S.detail));
   if(S.edit) return renderProjEdit(m);
@@ -1036,6 +1038,158 @@ function demoFuel(D,b,me,boss,dir){
   }
   return null;
 }
+
+/* ---------- Хөрөнгийн бүртгэл: нягтлан, захирал бүртгэнэ; бусад зөвхөн харна ---------- */
+const AS_CATS=[["ХМ","Хүнд машин механизм"],["ТР","Тээврийн хэрэгсэл"],["ТӨ","Тоног төхөөрөмж"],["ХБ","Хэмжилтийн багаж"],["БГ","Багаж хэрэгсэл"],["КЭ","Компьютер, электрон"],["ЭХ","Эд хогшил"],["ББ","Барилга байгууламж"]];
+const AS_ST=["Ашиглалтад","Засварт","Агуулахад","Актлагдсан","Зарагдсан"], AS_GONE=["Актлагдсан","Зарагдсан"];
+const AST_CLS={"Ашиглалтад":"st-paid","Засварт":"st-wait","Агуулахад":"st-ok","Актлагдсан":"st-no","Зарагдсан":"st-no"};
+const asTag=s=>`<span class="st ${AST_CLS[s]||""}">${esc(s)}</span>`;
+function demoAssets(D,b,me,boss,dir){
+  if(!["assets","saveAsset","deleteAsset","assetFile"].includes(b.action)) return null;
+  if(!D.equips) demoFuel(D,{action:"__init"},me,boss,dir);
+  if(!D.assets){ D.assets=[
+    {id:"AS1",no:"ХМ-001",cat:AS_CATS[0][1],name:"Экскаватор Hyundai R290",model:"R290LC-9S",serial:"",qty:1,date:"2023-04-12",price:385000000,supplier:"Жишээ Машин ХХК",loc:"ТТ2",holder:"Дорж",status:"Ашиглалтад",note:"",eq:"T1",photo:"",doc:"",created:"2026-11-01 10:00",by:"Сараа",updated:""},
+    {id:"AS2",no:"ХБ-001",cat:AS_CATS[3][1],name:"Нивелир",model:"Topcon AT-B4",serial:"NV-55821",qty:1,date:"2024-03-05",price:2600000,supplier:"",loc:"ТТ2",holder:"Бат",status:"Ашиглалтад",note:"",eq:"",photo:"",doc:"",created:"2026-11-01 10:05",by:"Сараа",updated:""},
+    {id:"AS3",no:"КЭ-001",cat:AS_CATS[5][1],name:"Зөөврийн компьютер",model:"Dell Latitude 5440",serial:"",qty:2,date:"2025-01-20",price:3200000,supplier:"",loc:"Контор",holder:"Сараа",status:"Ашиглалтад",note:"",eq:"",photo:"",doc:"",created:"2026-11-01 10:07",by:"Сараа",updated:""},
+    {id:"AS4",no:"ТӨ-001",cat:AS_CATS[2][1],name:"Генератор 30 кВт",model:"",serial:"",qty:1,date:"2022-06-01",price:18500000,supplier:"",loc:"Агуулах",holder:"",status:"Засварт",note:"Хөдөлгүүрийн засвар",eq:"",photo:"",doc:"",created:"2026-11-01 10:09",by:"Сараа",updated:""}]; }
+  const eqs=D.equips||[], nowS=()=>new Date().toISOString().slice(0,16).replace("T"," ");
+  switch(b.action){
+    case "assets": { const out=D.assets.map(a=>{ const e=a.eq?eqs.find(x=>x.id===a.eq):null;
+        const o={id:a.id,no:a.no,cat:a.cat,name:a.name,model:a.model,serial:a.serial||(e?e.plate:""),qty:a.qty,date:a.date,loc:a.loc,holder:a.holder,status:a.status,note:a.note,eq:a.eq,eqName:e?e.name+" · "+e.plate:"",hasPhoto:!!a.photo,created:a.created,by:a.by,updated:a.updated};
+        if(boss){ o.price=a.price; o.supplier=a.supplier; o.hasDoc=!!a.doc; } return o; });
+      const res={assets:out,cats:AS_CATS,statuses:AS_ST,boss:!!boss};
+      if(boss){ res.eqs=eqs.filter(e=>e.own!=="Түрээсийн").map(e=>({id:e.id,name:e.name,plate:e.plate,kind:e.kind,proj:e.proj,active:e.active,linked:D.assets.some(a=>a.eq===e.id)})); res.people=D.users.map(u=>u.name); }
+      return res; }
+    case "saveAsset": { if(!boss) return {error:"bad",message:"Эрх хүрэхгүй"}; const a=b.a||{}, cat=AS_CATS.find(c=>c[1]===a.cat);
+      if(!cat) return {error:"bad",message:"Ангиллаа сонгоно уу"}; if(!String(a.name||"").trim()) return {error:"bad",message:"Хөрөнгийн нэрийг бичнэ үү"};
+      if(a.eq&&D.assets.some(x=>x.eq===a.eq&&x.id!==a.id)) return {error:"bad",message:"Энэ техник хөрөнгийн бүртгэлд аль хэдийн орсон байна"};
+      let ex=a.id?D.assets.find(x=>x.id===a.id):null; if(a.id&&!ex) return {error:"bad",message:"Хөрөнгө олдсонгүй"};
+      if(!ex){ const n=Math.max(0,...D.assets.map(x=>x.no.startsWith(cat[0]+"-")?+x.no.split("-")[1]:0))+1; ex={id:"AS"+Date.now(),no:cat[0]+"-"+String(n).padStart(3,"0"),photo:"",doc:"",created:nowS(),by:me.name}; D.assets.push(ex); }
+      Object.assign(ex,{cat:cat[1],name:String(a.name).trim(),model:a.model||"",serial:a.serial||"",qty:Math.max(1,Math.round(+a.qty||1)),date:a.date||"",price:+a.price||0,supplier:a.supplier||"",loc:a.loc||"",holder:a.holder||"",status:AS_ST.includes(a.status)?a.status:AS_ST[0],note:a.note||"",eq:a.eq||"",updated:nowS()});
+      if(b.photo){ store.set("aas_das_"+ex.id,b.photo); ex.photo="demo"; } if(b.doc){ store.set("aas_dad_"+ex.id,b.doc); ex.doc="demo"; }
+      const r=demoAssets(D,{action:"assets"},me,boss,dir); r.saved={id:ex.id,no:ex.no}; return r; }
+    case "deleteAsset": { if(!dir) return {error:"bad",message:"Эрх хүрэхгүй"}; D.assets=D.assets.filter(x=>x.id!==b.id); return demoAssets(D,{action:"assets"},me,boss,dir); }
+    case "assetFile": { if(b.kind==="doc"&&!boss) return {data:""}; return {data:store.get((b.kind==="doc"?"aas_dad_":"aas_das_")+b.id)||""}; }
+  }
+  return null;
+}
+let asBusy=false;
+async function loadAssets(){ if(asBusy) return; asBusy=true; try{ S.as=await api("assets"); if(S.tab==="assets"&&!S.aed) render(); }catch(e){ toast("Ачаалж чадсангүй: "+e.message); } finally{ asBusy=false; } }
+function asBase(){ const v=S.aview||"act", q=(S.aq||"").trim().toLowerCase();
+  return S.as.assets.filter(a=>v==="gone"?AS_GONE.includes(a.status):!AS_GONE.includes(a.status))
+    .filter(a=>v!=="mine"||a.holder===S.user.name)
+    .filter(a=>!q||[a.no,a.name,a.model,a.serial,a.loc,a.holder,a.note,a.cat].join(" ").toLowerCase().includes(q))
+    .sort((a,b)=>a.no.localeCompare(b.no,"mn",{numeric:true})); }
+function asCard(a){
+  const sub=[a.model,a.serial].filter(Boolean).map(esc).join(" · ");
+  return `<button class="card req" data-aopen="${esc(a.id)}" style="text-align:left;display:flex;width:100%">
+    <div class="top" style="width:100%"><div class="what">${esc(a.name)}${a.qty>1?` · ${a.qty} ш`:""}</div>${asTag(a.status)}</div>
+    <div class="tags" style="width:100%"><span class="tag" style="font-family:var(--mono)">${esc(a.no)}</span><span class="tag">${esc(a.cat)}</span>${a.loc?`<span class="tag">📍 ${esc(a.loc)}</span>`:""}</div>
+    ${sub||a.holder?`<div class="meta" style="width:100%">${sub}${sub&&a.holder?" · ":""}${a.holder?`👤 ${esc(a.holder)}`:""}</div>`:""}
+    ${S.as.boss&&a.price?`<div class="meta" style="width:100%">${fmt(a.price*a.qty)} ₮${a.qty>1?` (${a.qty} × ${fmt(a.price)})`:""}</div>`:""}</button>`;
+}
+function asListRender(){
+  const box=$("#asList"); if(!box) return; const base=asBase(), cnt={}; base.forEach(a=>cnt[a.cat]=(cnt[a.cat]||0)+1);
+  const L=S.acat?base.filter(a=>a.cat===S.acat):base, v=S.aview||"act";
+  box.innerHTML=`<div class="chips" style="margin-bottom:10px"><button data-acat="" aria-pressed="${!S.acat}">Бүгд · ${base.length}</button>${S.as.cats.filter(([,n])=>cnt[n]||S.acat===n).map(([,n])=>`<button data-acat="${esc(n)}" aria-pressed="${S.acat===n}">${esc(n)} · ${cnt[n]||0}</button>`).join("")}</div>`
+    +(L.length?L.map(asCard).join(""):`<div class="card empty">${S.aq?"Хайлтад тохирох хөрөнгө алга":v==="mine"?"Танд хүлээлгэсэн хөрөнгө алга":v==="gone"?"Актлагдсан, зарагдсан хөрөнгө алга":"Хөрөнгө бүртгэгдээгүй байна"}</div>`);
+}
+function renderAssets(m){
+  if(!S.as){ m.innerHTML=`<div class="card empty">Ачаалж байна…</div>`; loadAssets(); return; }
+  if(S.aed) return renderAssetEdit(m);
+  if(S.aopen){ const a=S.as.assets.find(x=>x.id===S.aopen); if(a) return renderAssetView(m,a); S.aopen=null; }
+  const B=S.as.boss, A=S.as.assets, live=A.filter(a=>!AS_GONE.includes(a.status)), v=S.aview||"act";
+  let h=demoBanner();
+  if(B){ const sum=live.reduce((s,a)=>s+(a.price||0)*a.qty,0), n=live.reduce((s,a)=>s+a.qty,0), rep=live.filter(a=>a.status==="Засварт").length;
+    h+=`<div class="stat3"><div class="card ok"><div class="l">Хөрөнгө</div><div class="c">${live.length}</div><div class="s">${fmt(n)} ширхэг</div></div>
+      <div class="card wt"><div class="l">Нийт үнэ</div><div class="c">${sum>=1e9?(Math.round(sum/1e7)/100)+"":sum>=1e6?(Math.round(sum/1e5)/10)+"":fmt(sum)}</div><div class="s">${sum>=1e9?"тэрбум ₮":sum>=1e6?"сая ₮":"₮"}</div></div>
+      <div class="card no"><div class="l">Засварт</div><div class="c">${rep}</div><div class="s">хөрөнгө</div></div></div>
+      <div class="actions"><button class="primary" data-anew="">＋ Хөрөнгө бүртгэх</button>${A.length?`<button data-axl="">⬇ Excel</button>`:""}</div>`;
+    const un=(S.as.eqs||[]).filter(e=>!e.linked&&e.active);
+    if(un.length) h+=`<div class="card"><div style="font-weight:600">🚜 «Техник» хэсгийн ${un.length} өөрийн техник хөрөнгийн бүртгэлд ороогүй байна</div><div class="small muted" style="margin:4px 0 8px">Дарж авсан үнэ, огноо зэргийг нь нэмээд бүртгэнэ. Нэг техникийг хоёр газар давхар бөглөх шаардлагагүй.</div><div class="chips">${un.map(e=>`<button data-aeq="${esc(e.id)}">＋ ${esc(e.name)} · ${esc(e.plate)}</button>`).join("")}</div></div>`;
+  } else h+=`<div class="small muted" style="margin:0 2px">Компанийн хөрөнгийн жагсаалт. Нягтлан бүртгэж, засна.</div>`;
+  h+=`<div class="seg"><button data-aview="act" aria-pressed="${v==="act"}">Бүгд</button><button data-aview="mine" aria-pressed="${v==="mine"}">Надад хүлээлгэсэн</button><button data-aview="gone" aria-pressed="${v==="gone"}">Хассан</button></div>
+    <label class="f"><input id="as_q" type="search" placeholder="🔍 Нэр, дугаар, хариуцагчаар хайх" value="${esc(S.aq||"")}"></label><div id="asList"></div>`;
+  m.innerHTML=h; asListRender();
+}
+function renderAssetView(m,a){
+  const B=S.as.boss, R=[["Инвентарийн №",a.no],["Ангилал",a.cat],["Марк, загвар",a.model],["Серийн / улсын дугаар",a.serial],["Тоо ширхэг",a.qty>1?a.qty+" ш":""],["Байршил",a.loc],["Хариуцагч",a.holder],["Авсан огноо",a.date],
+    ...(B?[["Нэгжийн үнэ",a.price?fmt(a.price)+" ₮":""],["Нийт үнэ",a.qty>1&&a.price?fmt(a.price*a.qty)+" ₮":""],["Нийлүүлэгч",a.supplier]]:[]),["Техник хэсэгт",a.eqName],["Тэмдэглэл",a.note]].filter(r=>r[1]);
+  let h=`<div><button data-aback="">‹ Буцах</button></div>
+   <div class="card req"><div class="top"><div class="what" style="font-size:17px">${esc(a.name)}</div>${asTag(a.status)}</div>
+    <div class="fin" style="margin-top:6px">${R.map(([k,v])=>`<div class="ln"><span class="muted">${k}</span><span style="text-align:right">${esc(v)}</span></div>`).join("")}</div>
+    <div class="meta">Бүртгэсэн: ${esc(a.by)} · ${esc(a.created)}${a.updated&&a.updated!==a.created?` · сүүлд зассан ${esc(a.updated)}`:""}</div></div>`;
+  if(a.hasPhoto) h+=`<div class="card photo" id="aBox_photo"><button class="big" data-afile="photo">📷 Зураг харах</button></div>`;
+  if(B&&a.hasDoc) h+=`<div class="card photo" id="aBox_doc"><button class="big" data-afile="doc">🧾 Худалдан авалтын баримт харах</button></div>`;
+  if(B) h+=`<button class="big" data-aedit="${esc(a.id)}">✏️ Засах</button>`;
+  if(isDir()) h+=`<div class="card form" style="margin-top:14px">${S.aDel===a.id?`<div class="banner"><b>${esc(a.no)} хөрөнгийг бүрмөсөн устгах уу?</b> Сэргээх боломжгүй. Актласан, зарсан бол устгахын оронд төлвийг нь өөрчилбөл түүх нь үлдэнэ.</div><div class="actions"><button data-adelno="">Болих</button><button class="danger" data-adel="${esc(a.id)}">🗑 Тийм, устгах</button></div>`
+    :`<button class="danger" data-adel="${esc(a.id)}">🗑 Устгах</button><div class="small muted">Зөвхөн захиралд харагдана. Алдаатай бүртгэлийг устгахад.</div>`}</div>`;
+  m.innerHTML=h;
+}
+function renderAssetEdit(m){
+  const a=S.aed, P=S.meta?.projects||[], ppl=S.as.people||[];
+  m.innerHTML=`<div><button data-acancel="">‹ Буцах</button></div><form class="card form" id="assetForm" novalidate>
+   <div style="font-weight:600;font-size:16px">${a.id?`${esc(a.no)} засах`:"Шинэ хөрөнгө"}</div>
+   ${a.eqName?`<div class="banner">🚜 «Техник» хэсгийн <b>${esc(a.eqName)}</b>-тэй холбоотой. Түлш, ирц нь тэндээ хэвээр бүртгэгдэнэ.</div>`:""}
+   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Ангилал</div><div class="chips">${AS_CATS.map(([,n])=>`<button type="button" data-acatsel="${esc(n)}" aria-pressed="${a.cat===n}">${esc(n)}</button>`).join("")}</div></div>
+   <label class="f">Нэр<input id="a_name" value="${esc(a.name||"")}" placeholder="Жишээ: Зөөврийн компьютер"></label>
+   <label class="f">Марк, загвар<input id="a_model" value="${esc(a.model||"")}" placeholder="Жишээ: Dell Latitude 5440"></label>
+   <label class="f">Серийн / улсын дугаар<input id="a_serial" value="${esc(a.serial||"")}"></label>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <label class="f">Тоо ширхэг<input id="a_qty" type="number" inputmode="numeric" min="1" step="1" value="${esc(String(a.qty||1))}"></label>
+    <label class="f">Авсан огноо<input id="a_date" type="date" value="${esc(a.date||"")}" max="${today()}"></label></div>
+   <label class="f">Нэгжийн үнэ, ₮ (зөвхөн нягтлан, захиралд харагдана)<input id="a_price" inputmode="numeric" value="${a.price?fmt(a.price):""}" placeholder="0"></label>
+   <label class="f">Нийлүүлэгч<input id="a_sup" value="${esc(a.supplier||"")}" placeholder="Хаанаас авсан"></label>
+   <label class="f">Байршил<input id="a_loc" list="aLocs" value="${esc(a.loc||"")}" placeholder="Төсөл, Контор, Агуулах"><datalist id="aLocs">${[...P.map(p=>p[0]),"Контор","Агуулах"].map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
+   <label class="f">Хариуцагч ажилтан<input id="a_holder" list="aPpl" value="${esc(a.holder||"")}" placeholder="Хэнд хүлээлгэж өгсөн"><datalist id="aPpl">${ppl.map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
+   <div><div class="small muted" style="font-weight:500;margin-bottom:6px">Төлөв</div><div class="chips">${AS_ST.map(s=>`<button type="button" data-astsel="${esc(s)}" aria-pressed="${(a.status||AS_ST[0])===s}">${esc(s)}</button>`).join("")}</div></div>
+   <label class="f">Тэмдэглэл<textarea id="a_note" placeholder="Нэмэлт мэдээлэл">${esc(a.note||"")}</textarea></label>
+   <label class="f">📷 Хөрөнгийн зураг${a.hasPhoto?" (солих бол)":""}<input id="a_photo" type="file" accept="${IMG_ACCEPT}" capture="environment"></label><div id="aPhotoPrev" class="photo">${S.aPhoto?`<img src="${S.aPhoto}" alt="Зураг">`:""}</div>
+   <label class="f">🧾 Худалдан авалтын баримт${a.hasDoc?" (солих бол)":""}<input id="a_doc" type="file" accept="${IMG_ACCEPT}"></label><div id="aDocPrev" class="photo">${S.aDoc?`<img src="${S.aDoc}" alt="Баримт">`:""}</div>
+   <div id="aErr" class="banner" hidden></div><button class="primary big" type="submit" id="aSave">Хадгалах</button></form>`;
+}
+async function exportAssetsXlsx(){
+  const X=await loadLib(LIB_XLSX,"XLSX"), wb=X.utils.book_new(), A=S.as.assets.slice().sort((a,b)=>a.no.localeCompare(b.no,"mn",{numeric:true}));
+  const rows=[["Инвентарийн №","Ангилал","Нэр","Марк, загвар","Серийн / улсын дугаар","Тоо","Нэгжийн үнэ","Нийт үнэ","Авсан огноо","Нийлүүлэгч","Байршил","Хариуцагч","Төлөв","Тэмдэглэл"],
+    ...A.map(a=>[a.no,a.cat,a.name,a.model,a.serial,a.qty,a.price||"",(a.price||0)*a.qty||"",a.date,a.supplier||"",a.loc,a.holder,a.status,a.note])];
+  const w1=X.utils.aoa_to_sheet(rows); w1["!cols"]=[{wch:11},{wch:20},{wch:28},{wch:20},{wch:16},{wch:6},{wch:14},{wch:14},{wch:11},{wch:18},{wch:12},{wch:14},{wch:12},{wch:24}];
+  X.utils.book_append_sheet(wb,w1,"Хөрөнгө");
+  const live=A.filter(a=>!AS_GONE.includes(a.status)), sm=[["Ангилал","Бүртгэл","Ширхэг","Нийт үнэ ₮"]];
+  AS_CATS.forEach(([,n])=>{ const L=live.filter(a=>a.cat===n); if(L.length) sm.push([n,L.length,L.reduce((s,a)=>s+a.qty,0),L.reduce((s,a)=>s+(a.price||0)*a.qty,0)]); });
+  sm.push(["Нийт",live.length,live.reduce((s,a)=>s+a.qty,0),live.reduce((s,a)=>s+(a.price||0)*a.qty,0)]);
+  const w2=X.utils.aoa_to_sheet(sm); w2["!cols"]=[{wch:22},{wch:9},{wch:9},{wch:16}]; X.utils.book_append_sheet(wb,w2,"Ангиллаар (идэвхтэй)");
+  const out=X.write(wb,{bookType:"xlsx",type:"array"});
+  await saveBlob(fileSafe(`Аасгалдай_хөрөнгө_${today()}.xlsx`),new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+}
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("button"); if(!t||S.tab!=="assets") return; const D=t.dataset;
+  if(D.aview){ S.aview=D.aview; render(); return; }
+  if(D.acat!=null){ S.acat=D.acat||null; asListRender(); return; }
+  if(D.aopen){ S.aopen=D.aopen; S.aDel=null; render(); scrollTo(0,0); return; }
+  if(D.aback!=null){ S.aopen=null; S.aDel=null; render(); return; }
+  if(D.anew!=null){ S.aed={cat:"",status:AS_ST[0],qty:1}; S.aPhoto=S.aDoc=null; render(); scrollTo(0,0); return; }
+  if(D.aeq){ const e=(S.as.eqs||[]).find(x=>x.id===D.aeq); if(!e) return;
+    S.aed={cat:e.kind==="Тээврийн хэрэгсэл"?"Тээврийн хэрэгсэл":"Хүнд машин механизм",name:e.name,serial:e.plate,loc:e.proj,status:AS_ST[0],qty:1,eq:e.id,eqName:e.name+" · "+e.plate}; S.aPhoto=S.aDoc=null; render(); scrollTo(0,0); return; }
+  if(D.aedit){ const a=S.as.assets.find(x=>x.id===D.aedit); if(!a) return; S.aed={...a}; S.aPhoto=S.aDoc=null; render(); scrollTo(0,0); return; }
+  if(D.acancel!=null){ S.aed=null; S.aPhoto=S.aDoc=null; render(); return; }
+  if(D.acatsel){ S.aed.cat=D.acatsel; t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
+  if(D.astsel){ S.aed.status=D.astsel; t.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===t))); return; }
+  if(D.afile){ t.disabled=true; t.textContent="Ачаалж байна…"; try{ const r=await api("assetFile",{id:S.aopen,kind:D.afile}); $("#aBox_"+D.afile).innerHTML=r.data?`<img src="${r.data}" alt="Зураг">`:`<div class="small muted">Зураг олдсонгүй.</div>`; }catch(err){ toast(err.message); t.disabled=false; } return; }
+  if(D.axl!=null){ t.disabled=true; try{ await exportAssetsXlsx(); }catch(err){ toast(err.message); } t.disabled=false; return; }
+  if(D.adelno!=null){ S.aDel=null; render(); return; }
+  if(D.adel){ if(S.aDel!==D.adel){ S.aDel=D.adel; render(); return; } t.disabled=true;
+    try{ S.as=await api("deleteAsset",{id:D.adel}); S.aDel=null; S.aopen=null; toast("Устгалаа"); render(); }catch(err){ toast(err.message); t.disabled=false; } return; }
+});
+document.addEventListener("input",ev=>{ if(ev.target.id==="as_q"){ S.aq=ev.target.value; asListRender(); } });
+document.addEventListener("change",async ev=>{ const el=ev.target;
+  if((el.id==="a_photo"||el.id==="a_doc")&&el.files[0]){ try{ const d=await compress(el.files[0],1600); if(el.id==="a_photo"){ S.aPhoto=d; $("#aPhotoPrev").innerHTML=`<img src="${d}" alt="Зураг">`; } else { S.aDoc=d; $("#aDocPrev").innerHTML=`<img src="${d}" alt="Баримт">`; } }catch(err){ toast(err.message); } } });
+document.addEventListener("submit",async ev=>{ if(ev.target.id!=="assetForm") return; ev.preventDefault();
+  const v=id=>$("#"+id).value.trim(), a={...S.aed,name:v("a_name"),model:v("a_model"),serial:v("a_serial"),qty:Math.round(+v("a_qty")||1),date:v("a_date"),price:+v("a_price").replace(/[^\d.]/g,"")||0,supplier:v("a_sup"),loc:v("a_loc"),holder:v("a_holder"),note:v("a_note")};
+  if(!a.cat) return showErr("#aErr","Ангиллаа сонгоно уу."); if(!a.name) return showErr("#aErr","Хөрөнгийн нэрийг бичнэ үү."); if(a.qty<1) return showErr("#aErr","Тоо ширхэг 1-ээс бага байж болохгүй.");
+  const b=$("#aSave"); b.disabled=true; b.textContent="Хадгалж байна…";
+  try{ const r=await api("saveAsset",{a:{id:a.id||"",cat:a.cat,name:a.name,model:a.model,serial:a.serial,qty:a.qty,date:a.date,price:a.price,supplier:a.supplier,loc:a.loc,holder:a.holder,status:a.status,note:a.note,eq:a.eq||""},photo:S.aPhoto||"",doc:S.aDoc||""});
+    S.as=r; S.aed=null; S.aPhoto=S.aDoc=null; S.aopen=r.saved?.id||null; toast(`Хадгалагдлаа${r.saved?" · "+r.saved.no:""}`); render(); scrollTo(0,0); }
+  catch(err){ b.disabled=false; b.textContent="Хадгалах"; showErr("#aErr",err.message); } });
 
 const eqById=id=>S.fuel?.equips.find(e=>e.id===id);
 let fuelBusy=false;
@@ -2721,8 +2875,8 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("button"); if(!t) return;
   const D=t.dataset;
   if(t.id==="logout") return logout();
-  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); if(S.tab==="dash") S.loans=null; return load(); }
-  if(D.tab){ S.tab=D.tab; S.detail=S.edit=S.uedit=S.incEdit=null; S.eqEdit=S.ff=S.feq=null; S.habEdit=null; S.pdet=null; S.uedit=null; S.delAsk=null; render(); scrollTo(0,0); return; }
+  if(t.id==="refresh"){ toast("Шинэчилж байна…"); S.users=null; if(S.tab==="assets") S.as=null; if(S.tab==="fuel") S.fuel=null; if(S.tab==="hab") S.hab=null; if(S.tab==="people"){ S.ppl=null; S.meals=null; } if(S.tab==="me") S.my=null; if(S.tab==="kitchen") S.meals=null; if(S.tab==="sched") schedReset(); if(S.tab==="dash") S.loans=null; return load(); }
+  if(D.tab){ S.tab=D.tab; S.detail=S.edit=S.uedit=S.incEdit=null; S.eqEdit=S.ff=S.feq=null; S.habEdit=null; S.pdet=null; S.uedit=null; S.delAsk=null; S.aed=S.aopen=S.aDel=null; render(); scrollTo(0,0); return; }
   if(D.go){ S.tab=D.go; render(); scrollTo(0,0); return; }
   if(D.open){ S.detail=D.open; S.payPhoto=null; render(); scrollTo(0,0); return; }
   if(t.id==="back"){ S.detail=null; S.payPhoto=null; render(); return; }
@@ -2881,7 +3035,7 @@ function idleCheck(){ if(!S.user||MODE==="demo") return false; lastAct=Math.max(
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.user){ if(idleCheck()) return; load(true); } });
 setInterval(()=>{ if(idleCheck()) return; if(!document.hidden&&S.user) load(true); },60000);
 setInterval(idleCheck,15000);
-const BUILD="20261102164305";
+const BUILD="20261106222202";
 async function checkUpdate(){ if(MODE!=="http"||BUILD.length<10) return; try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); const v=(await r.json()).v;
   if(v&&v>BUILD){ const busy=S.tab==="new"||S.edit||S.uedit||S.incEdit||S.pinChange||S.ff||S.eqEdit||S.habEdit||S.reg; if(!busy) location.reload(); else if(!S.updToast){ S.updToast=1; toast("Апп-ын шинэ хувилбар гарлаа. Ажлаа дуусгаад апп-аа дахин нээнэ үү."); } } }catch(e){} }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });

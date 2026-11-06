@@ -405,6 +405,19 @@ function handle_(b) {
         var rp = rows_().filter(function (x) { return x.id === b.id; })[0];
         if (!rp || !rp.payphoto || (!boss && rp.by !== me.name && !pmSees_(me, rp))) return { data: '' };
         return { data: fileData_(rp.payphoto) };
+      case 'assets': return assetData_(me);
+      case 'saveAsset':
+        if (!boss) return deny_();
+        var sa = saveAsset_(me, b.a, b.photo, b.doc); var ad = assetData_(me); ad.saved = sa; return ad;
+      case 'deleteAsset':
+        if (!director) return deny_();
+        deleteAsset_(b.id); return assetData_(me);
+      case 'assetFile':
+        var af = assets_().filter(function (x) { return x.id === b.id; })[0];
+        if (!af || (b.kind === 'doc' && !boss)) return { data: '' };
+        var fid = b.kind === 'doc' ? af.doc : af.photo;
+        if (!fid && b.kind !== 'doc' && af.eq) { var aeq = equips_().filter(function (x) { return x.id === af.eq; })[0]; fid = aeq ? aeq.photo : ''; }
+        return { data: fid ? fileData_(fid) : '' };
       case 'dashboard':
         if (boss) return { projects: dashboard_() };
         if (!isPM_(me)) return deny_();
@@ -1919,6 +1932,79 @@ function loanDel_(id, isTx) {
   } finally { lock.releaseLock(); }
 }
 // Захирал хүсэлтийг бүрмөсөн устгана: холбогдох зээл/урьдчилгаа болон түүний гүйлгээг хамт устгана
+/* ---------- Хөрөнгийн бүртгэл: нягтлан, захирал бүртгэнэ; бусад зөвхөн харна (үнэгүйгээр) ---------- */
+var ASCOLS = ['id','no','cat','name','model','serial','qty','date','price','supplier','loc','holder','status','photo','doc','note','eq','created','by','updated'];
+var ASSET_CATS = [['ХМ','Хүнд машин механизм'],['ТР','Тээврийн хэрэгсэл'],['ТӨ','Тоног төхөөрөмж'],['ХБ','Хэмжилтийн багаж'],['БГ','Багаж хэрэгсэл'],['КЭ','Компьютер, электрон'],['ЭХ','Эд хогшил'],['ББ','Барилга байгууламж']];
+var ASSET_ST = ['Ашиглалтад', 'Засварт', 'Агуулахад', 'Актлагдсан', 'Зарагдсан'];
+var ASSET_FOLDER = 'Аасгалдай хөрөнгө';
+function assetSheet_() { return ensureSheet_('Хөрөнгө', ['ID','Инвентарийн №','Ангилал','Нэр','Марк, загвар','Серийн / улсын дугаар','Тоо','Авсан огноо','Нэгжийн үнэ','Нийлүүлэгч','Байршил','Хариуцагч','Төлөв','Зураг','Баримт','Тэмдэглэл','Техник ID','Бүртгэсэн','Бүртгэсэн хүн','Зассан']); }
+function assets_() {
+  return rowsOf_(assetSheet_(), ASCOLS.length).map(function (r) {
+    var o = {}; ASCOLS.forEach(function (c, i) { o[c] = r[i]; });
+    ['id','no','cat','name','model','serial','supplier','loc','holder','status','photo','doc','note','eq','by'].forEach(function (k) { o[k] = String(o[k] === undefined || o[k] === null ? '' : o[k]); });
+    o.qty = Math.max(1, Math.round(num_(o.qty)) || 1); o.price = num_(o.price); o.date = ymd_(o.date);
+    o.created = fmtDate_(o.created); o.updated = fmtDate_(o.updated);
+    if (ASSET_ST.indexOf(o.status) < 0) o.status = ASSET_ST[0];
+    return o;
+  });
+}
+function assetData_(me) {
+  var boss = isBoss_(me), list = assets_(), eqs = equips_();
+  var out = list.map(function (a) {
+    var e = a.eq ? eqs.filter(function (x) { return x.id === a.eq; })[0] : null;
+    var o = { id: a.id, no: a.no, cat: a.cat, name: a.name, model: a.model, serial: a.serial || (e ? e.plate : ''), qty: a.qty, date: a.date, loc: a.loc, holder: a.holder,
+              status: a.status, note: a.note, eq: a.eq, eqName: e ? e.name + ' · ' + e.plate : '', hasPhoto: !!a.photo || !!(e && e.photo), created: a.created, by: a.by, updated: a.updated };
+    if (boss) { o.price = a.price; o.supplier = a.supplier; o.hasDoc = !!a.doc; }
+    return o;
+  });
+  var res = { assets: out, cats: ASSET_CATS, statuses: ASSET_ST, boss: boss };
+  if (boss) {
+    var linked = {}; list.forEach(function (a) { if (a.eq) linked[a.eq] = 1; });
+    res.eqs = eqs.filter(function (e) { return e.own !== 'Түрээсийн'; }).map(function (e) { return { id: e.id, name: e.name, plate: e.plate, kind: e.kind, proj: e.proj, active: e.active, linked: !!linked[e.id] }; });
+    res.people = activeUsers_().map(function (u) { return u.name; });
+  }
+  return res;
+}
+function saveAsset_(me, a, photo, doc) {
+  a = a || {};
+  var cat = ASSET_CATS.filter(function (c) { return c[1] === a.cat; })[0];
+  if (!cat) throw new Error('Ангиллаа сонгоно уу');
+  var name = String(a.name || '').trim(); if (!name) throw new Error('Хөрөнгийн нэрийг бичнэ үү');
+  var status = ASSET_ST.indexOf(a.status) >= 0 ? a.status : ASSET_ST[0];
+  var qty = Math.round(num_(a.qty) || 1); if (qty < 1 || qty > 100000) throw new Error('Тоо ширхэг буруу');
+  var price = num_(a.price); if (price < 0) throw new Error('Үнэ буруу');
+  var date = String(a.date || ''); if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Огноо буруу');
+  var eqId = String(a.eq || '');
+  if (eqId && !equips_().some(function (e) { return e.id === eqId; })) throw new Error('Холбох техник олдсонгүй');
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = assetSheet_(), v = sh.getDataRange().getValues(), idx = -1, maxN = 0;
+    for (var i = 1; i < v.length; i++) {
+      if (a.id && String(v[i][0]) === String(a.id)) idx = i;
+      var m = String(v[i][1] || '').match(/^(.+)-(\d+)$/); if (m && m[1] === cat[0]) maxN = Math.max(maxN, +m[2]);
+      if (eqId && String(v[i][16]) === eqId && String(v[i][0]) !== String(a.id || '')) throw new Error('Энэ техник хөрөнгийн бүртгэлд аль хэдийн орсон байна (' + v[i][1] + ')');
+    }
+    if (a.id && idx < 0) throw new Error('Хөрөнгө олдсонгүй');
+    var ex = idx > 0 ? v[idx] : null, now = new Date();
+    var id = ex ? String(ex[0]) : 'AS' + now.getTime();
+    var no = ex ? String(ex[1]) : cat[0] + '-' + ('00' + (maxN + 1)).slice(-3);
+    var photoId = ex ? String(ex[13] || '') : '', docId = ex ? String(ex[14] || '') : '';
+    if (photo && String(photo).indexOf('data:image') === 0) photoId = savePhoto_(ASSET_FOLDER, no + '.jpg', photo);
+    if (doc && String(doc).indexOf('data:image') === 0) docId = savePhoto_(ASSET_FOLDER, no + '_barimt.jpg', doc);
+    var dv = '';
+    if (date) { var p = date.split('-'); dv = new Date(+p[0], +p[1] - 1, +p[2]); }
+    var row = [id, no, cat[1], name, String(a.model || '').trim(), String(a.serial || '').trim(), qty, dv, price, String(a.supplier || '').trim(),
+               String(a.loc || '').trim(), String(a.holder || '').trim(), status, photoId, docId, String(a.note || '').trim(), eqId,
+               ex ? ex[17] : now, ex ? ex[18] : me.name, now];
+    if (ex) sh.getRange(idx + 1, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+    return { id: id, no: no };
+  } finally { lock.releaseLock(); }
+}
+function deleteAsset_(id) {
+  var sh = assetSheet_(), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === String(id)) { sh.deleteRow(i + 1); return; }
+  throw new Error('Хөрөнгө олдсонгүй');
+}
 function deleteReq_(id) {
   id = String(id || ''); if (!id) throw new Error('Хүсэлт олдсонгүй');
   var sh = sh_('Хүсэлт'), v = sh.getDataRange().getValues(), row = -1;
