@@ -494,6 +494,9 @@ function handle_(b) {
       case 'letterVoid':
         if (!isBoss_(me)) return deny_();
         letterVoid_(me, b.no); return letterData_(me);
+      case 'letterRenew':
+        if (!isBoss_(me)) return deny_();
+        return { letter: letterRenew_(me, b.no), data: letterData_(me) };
       case 'rentList':
         if (!boss) return deny_();
         return rentData_();
@@ -1734,6 +1737,24 @@ function rentDelete_(id) {
   var sh = rentSheet_(), v = sh.getDataRange().getValues();
   for (var i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === String(id)) { sh.deleteRow(i + 1); return; }
   throw new Error('Олдсонгүй');
+}
+// Хүргэж амжаагүй албан бичгийг өнөөдрийн огноо, шинэ дугаартай болгох: агуулгыг хуулж шинэ дугаар олгоно,
+// хуучныг «Хүчингүй» болгож S баганад «№ шинэ болгож шинэчилсэн» гэж тэмдэглэнэ.
+function letterRenew_(me, no) {
+  var old = letters_().filter(function (x) { return x.no === String(no); })[0];
+  if (!old) throw new Error('Албан бичиг олдсонгүй');
+  if (old.status === 'Хүчингүй') throw new Error('Хүчингүй болсон албан бичиг');
+  if (old.sent) throw new Error('Хүргэсэн албан бичгийг шинэчлэх боломжгүй');
+  var cfg = letterCfg_(), nl = letterSave_(me, { to: old.to, title: old.title, body: old.body, date: ymd_(new Date()), refDate: old.refDate, refNo: old.refNo,
+    stamp: old.stamp && cfg.hasStamp, signTitle: old.signTitle, signName: old.signName });
+  var sh = letterSheet_(), v = sh.getDataRange().getValues();
+  if (!String(sh.getRange(1, 16).getValue())) sh.getRange(1, 16, 1, 4).setValues([['Хүргэсэн', 'Хүргэсэн огноо', 'Хүргэсэн арга', 'Хүргэлтийн тэмдэглэл']]);
+  for (var i = 1; i < v.length; i++) if (String(v[i][2]) === String(no)) {
+    sh.getRange(i + 1, 15).setValue('Хүчингүй');
+    sh.getRange(i + 1, 19).setValue('№ ' + nl.no + ' болгож шинэчилсэн · ' + me.name);
+    break;
+  }
+  return nl;
 }
 function letterVoid_(me, no) {
   var sh = letterSheet_(), v = sh.getDataRange().getValues();
